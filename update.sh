@@ -10,5 +10,5 @@ cd $APPPATH
 echo "Dang chuan bi cap nhat...."
 git reset --hard
 git pull
-echo "Da cap nhat xong"
+echo "Da cap nhat xong app QuanLyServer den phien ban moi nhat. Co the dong cua so nay va chay lai app."
 $APPPATH/start.sh
