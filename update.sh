@@ -6,7 +6,7 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 APPPATH="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-
+cd $APPPATH
 echo "Dang chuan bi cap nhat...."
 git reset --hard
 git pull

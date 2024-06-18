@@ -6,7 +6,7 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 APPPATH="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-
+cd $APPPATH
 chmod -R 0755 $APPPATH
 cd ./2.0.0/
 
