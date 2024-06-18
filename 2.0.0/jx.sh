@@ -62,9 +62,7 @@ cleanUpLog(){
     rm -rf $GAMEPATH/gateway/Logs/*
     rm -rf $GAMEPATH/gateway/s3relay/Logs/*
     rm -rf $GAMEPATH/gateway/s3relay/RelayRunData/*
-    rm -rf $APPPATH/start_*
-    rm -rf $APPPATH/stop_*
-    pkill tail
+    chmod -R 0777 $GAMEPATH
     echoFormat "Da don dep xong server"
 }
 
@@ -312,6 +310,7 @@ if [ "$arg1" == "start" ]; then
         echo "Khong tim thay thu muc game '$gameserver_path'. Vui long kiem tra lai cai dat trong app"
         exit 0  # Exit with success (0) since a directory exists
     fi
+
 
     if [ "$arg2" == "goddess" ]; then
         goddess_start
