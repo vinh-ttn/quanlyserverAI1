@@ -513,7 +513,7 @@ class ProcessDashboard(tk.Tk):
                 subprocess.Popen(['python3', APP_DIR_FULL+"/users.py"])
                 return True                                            
             if section == "updateApp":
-                self.execRawWinCommand(APP_DIR_FULL+"/../update.sh",[])
+                self.execRawWinCommand(APP_DIR_FULL+"/../update.sh",[], True)
                 self.on_closing()
 
                 return True           
@@ -541,10 +541,13 @@ class ProcessDashboard(tk.Tk):
 
         result = subprocess.Popen(['xfce4-terminal', '--tab', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
          
-    def execRawWinCommand(self, scriptLink, args):
+    def execRawWinCommand(self, scriptLink, args, hold=False):
         env = os.environ.copy()
         env["GAMEPATH"] = self.CONFIG["directory"]
-        result = subprocess.Popen(['xfce4-terminal', '--tab',  '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
+        if hold:
+            result = subprocess.Popen(['xfce4-terminal', '--tab',  '--hold', '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
+        else:
+            result = subprocess.Popen(['xfce4-terminal', '--tab',  '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
 if __name__ == "__main__":
     app = ProcessDashboard()
     app.mainloop()
