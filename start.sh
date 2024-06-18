@@ -7,7 +7,7 @@ while [ -h "$SOURCE" ]; do
 done
 APPPATH="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
-chmod -r 0755 "$APPPATH/*"
+chmod -R 0755 $APPPATH
 cd ./2.0.0/
 
 if ! pgrep -f "app.py" > /dev/null; then
