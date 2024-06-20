@@ -63,17 +63,17 @@ def load_dict_from_file(filename):
         with open(filename, 'r') as file:
             return json.load(file)
     except FileNotFoundError:
-        return {} 
+        return False
 
 def getLANIP():
-
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(0)
-    s.connect(('8.8.8.8', 1))  # connect() for UDP doesn't send packets
-    ip_address = s.getsockname()[0]
-    s.close()
-    return ip_address
-
+    try:
+        result = subprocess.run(["bash", "-c", "ip -4 -br a | grep -v lo | grep -v docker | awk '{print $3}' | cut -d'/' -f1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            return f"Error: {result.stderr}"
+        return result.stdout.strip()
+    except Exception as e:
+        return f"Unexpected error: {e}"
+    
 class ProcessDashboard(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -129,6 +129,11 @@ class ProcessDashboard(tk.Tk):
  
         # Load JSON config
         self.CONFIG = load_dict_from_file(CONFIGFILE)
+
+        if self.CONFIG == False:
+            self.CONFIG = {
+                "directory" : "/home/jxser_8.1_vinh"
+            }
 
         # Local var for the app
         self.processes = {
