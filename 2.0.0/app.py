@@ -32,7 +32,7 @@ if not is_executable(BASH_SCRIPT):
 
  
 
-CONFIGFILE = 'app.json'
+CONFIGFILE = '/root/.quanlyserver.json'
 TRANSLATION = {
     "app_title": "Quản lý server",
     "app_version": APP_DIR_NAME,
@@ -61,8 +61,13 @@ def save_dict_to_file(dict_obj, filename):
 def load_dict_from_file(filename):
     try:
         with open(filename, 'r') as file:
-            return json.load(file)
+            data = json.load(file)
+            return data
     except FileNotFoundError:
+        return False
+    except json.JSONDecodeError:
+        return False
+    except Exception as e:
         return False
 
 def getLANIP():
