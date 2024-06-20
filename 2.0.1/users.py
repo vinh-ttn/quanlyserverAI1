@@ -129,15 +129,6 @@ def load_dict_from_file(filename):
     except FileNotFoundError:
         return {} 
 
-def getLANIP():
-
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(0)
-    s.connect(('8.8.8.8', 1))  # connect() for UDP doesn't send packets
-    ip_address = s.getsockname()[0]
-    s.close()
-    return ip_address
-
 def applyTheme(target ):
 
     menuColor = "#e5f3ff"
@@ -283,7 +274,7 @@ class ProcessDashboard(tk.Tk):
         table_frame.grid(row=row, column=0, sticky="nsew")
 
         # Create a frame for the table1
-        ipText = ttk.Label(table_frame, text="Server "+getLANIP(), style="SectionHeader.TLabel")
+        ipText = ttk.Label(table_frame, text="QuanLyUsers", style="SectionHeader.TLabel")
         ipText.pack(side='left', padx=(0,5))
 
  

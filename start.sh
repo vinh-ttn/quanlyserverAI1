@@ -8,7 +8,7 @@ done
 APPPATH="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 cd $APPPATH
 chmod -R 0755 $APPPATH
-cd ./2.0.0/
+cd ./2.0.1/
 
 if ! pgrep -f "app.py" > /dev/null; then
     nohup python3 app.py > /dev/null 2>&1 &

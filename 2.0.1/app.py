@@ -78,7 +78,15 @@ def getLANIP():
         return result.stdout.strip()
     except Exception as e:
         return f"Unexpected error: {e}"
-    
+
+def is_terminal_open():
+    """Check if there is an existing xfce4-terminal window open."""
+    try:
+        output = subprocess.check_output(['pgrep', '-f', "xfce4-terminal"])
+        return bool(output)
+    except subprocess.CalledProcessError:
+        return False 
+        
 class ProcessDashboard(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -549,15 +557,25 @@ class ProcessDashboard(tk.Tk):
         env = os.environ.copy()
         env["GAMEPATH"] = self.CONFIG["directory"]
 
-        result = subprocess.Popen(['xfce4-terminal', '--tab', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
+        if is_terminal_open():
+            result = subprocess.Popen(['xfce4-terminal', '--tab', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
+        else:
+            result = subprocess.Popen(['xfce4-terminal', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
          
     def execRawWinCommand(self, scriptLink, args, hold=False):
         env = os.environ.copy()
         env["GAMEPATH"] = self.CONFIG["directory"]
         if hold:
-            result = subprocess.Popen(['xfce4-terminal', '--tab',  '--hold', '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
+            if is_terminal_open():
+                result = subprocess.Popen(['xfce4-terminal', '--tab',  '--hold', '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
+            else:
+                result = subprocess.Popen(['xfce4-terminal',  '--hold', '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
         else:
-            result = subprocess.Popen(['xfce4-terminal', '--tab',  '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
+            if is_terminal_open():
+                result = subprocess.Popen(['xfce4-terminal', '--tab',  '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
+            else:
+                result = subprocess.Popen(['xfce4-terminal',  '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)
+            
 if __name__ == "__main__":
     app = ProcessDashboard()
     app.mainloop()
