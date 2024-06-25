@@ -144,7 +144,8 @@ def applyTheme(target ):
     style.configure("UserN.TLabel", background=listBgColor, foreground="#000", font=("Helvetica", 12,"normal"), borderwidth=0) 
 
     style.configure("SectionHeader.TLabel", background=menuColor, foreground="#1f73b7", font=("Helvetica", 16,"bold"), borderwidth=0)
-
+    style.configure("StatusOn.TLabel", background="#ececec", foreground="#1db24a", font=("Helvetica", 10,"normal"), borderwidth=0)
+    style.configure("StatusOff.TLabel", background="#ececec", foreground="#f50707", font=("Helvetica", 10,"normal"), borderwidth=0)
     style.configure("General.TEntry", width=10)
     style.configure("TFrame", background="#ffffff", borderwidth=0)
 
@@ -155,7 +156,7 @@ def applyTheme(target ):
     style.configure("DeleteAcc.TButton", width=3, background="#cc3340", foreground="#ffffff", borderwidth=1, relief="solid", bordercolor="#cc3340")
     style.configure("StartAll.TButton", width=10, background="#1f73b7", foreground="#ffffff", borderwidth=1, relief="solid", bordercolor="#1f73b7")
     style.configure("Log.TButton", width=3, background="#ffffff", foreground="#1f73b7", borderwidth=0, relief="solid", bordercolor="#1f73b7")
-
+    
     style.map("StartAll.TButton", background=[('active', '#144A75')])
     style.map("DeleteAcc.TButton", bordercolor=[('active', '#68232c')], background=[('active', '#68232c')])        
     style.map("Log.TButton", bordercolor=[('active', '#1F73B7')])
@@ -275,7 +276,7 @@ class ProcessDashboard(tk.Tk):
         table_frame.grid(row=row, column=0, sticky="nsew")
 
         # Create a frame for the table1
-        ipText = ttk.Label(table_frame, text="QuanLyUsers", style="SectionHeader.TLabel")
+        ipText = ttk.Label(table_frame, text="Danh sách tài khoản", style="SectionHeader.TLabel")
         ipText.pack(side='left', padx=(0,5))
 
  
@@ -298,34 +299,44 @@ class ProcessDashboard(tk.Tk):
         
 
         # Execute queries and retrieve results
-        mssql_result = execute_query(mssql_connection, "SELECT cAccName FROM Account_Info ORDER by cAccName ASC;")
+        mssql_result = execute_query(mssql_connection, "SELECT cAccName, dLoginDate, dLogoutDate FROM Account_Info ORDER by cAccName ASC;")
 
         target_row = 0
 
         ttk.Label(table_frame_inner, text="User", style="PName.TLabel").grid(row=target_row, column=1, sticky='nsew', padx=5, pady=5)
-        ttk.Label(table_frame_inner, text="Nhân vật", style="PName.TLabel").grid(row=target_row, column=2, sticky='nsew', padx=5, pady=5)
+        ttk.Label(table_frame_inner, text="Nhân vật", style="PName.TLabel").grid(row=target_row, column=3, sticky='nsew', padx=5, pady=5)
 
         if mssql_result:
             for item in mssql_result:
-                for uname in item:
-                    target_row = target_row + 1
+ 
+
+                uname = item[0]
+                loginDate = item[1] if item[1] is not None else 'No login date'
+                logoutDate = item[2] if item[2] is not None else 'No logout date'
+ 
+                target_row = target_row + 1
+                
+
+                ttk.Label(table_frame_inner, text=uname, style="UserN.TLabel").grid(row=target_row, column=1, sticky='ew', padx=5, pady=5)
+                ttk.Button(table_frame_inner, text="Xóa", command=lambda p=uname: self.deleteAcc(p), style="DeleteAcc.TButton").grid(row=target_row, column=0, sticky='ew', padx=5, pady=5)
+
+                if loginDate < logoutDate:
+                    ttk.Label(table_frame_inner, text="offline", style="StatusOff.TLabel").grid(row=target_row, column=2, sticky='ew', padx=5, pady=5)
+                
+                else:
+                    ttk.Label(table_frame_inner, text="online", style="StatusOn.TLabel").grid(row=target_row, column=2, sticky='ew', padx=5, pady=5)
                     
-                    # Process name
-                    ttk.Label(table_frame_inner, text=uname, style="UserN.TLabel").grid(row=target_row, column=1, sticky='ew', padx=5, pady=5)
-                    ttk.Button(table_frame_inner, text="Xóa", command=lambda p=uname: self.deleteAcc(p), style="DeleteAcc.TButton").grid(row=target_row, column=0, sticky='ew', padx=5, pady=5)
-
-
-                    udata_result = execute_query(mysql_connection, "SELECT ID, RoleName FROM Role WHERE Account='{}' ORDER BY RoleName ASC;".format(uname))
-                    if udata_result:
-                        c_frame = ttk.Frame(table_frame_inner, padding="20", style="ProcessesList.TFrame")
-                        c_frame.grid(row=target_row, column=2, padx=0, pady=(0,1), sticky="e")
-                        crow = 0
-                        for each in udata_result:
-                            cid = each[0]
-                            cname = myConvert.convert(each[1].decode("UTF-8"), "UNICODE", "TCVN3")
-                            ttk.Label(c_frame, text=cname, style="UserN.TLabel").pack(side='left', padx=5)
-                            ttk.Button(c_frame, text="Xóa", command=lambda p=cid: self.deleteChar(p), style="Log.TButton").pack(side='left', padx=(5, 20))
-                            crow = crow + 1 
+                udata_result = execute_query(mysql_connection, "SELECT ID, RoleName FROM Role WHERE Account='{}' ORDER BY RoleName ASC;".format(uname))
+                if udata_result:
+                    c_frame = ttk.Frame(table_frame_inner, padding="20", style="ProcessesList.TFrame")
+                    c_frame.grid(row=target_row, column=3, padx=0, pady=(0,1), sticky="e")
+                    crow = 0
+                    for each in udata_result:
+                        cid = each[0]
+                        cname = myConvert.convert(each[1].decode("cp1252"), "UNICODE", "TCVN3")
+                        ttk.Label(c_frame, text=cname, style="UserN.TLabel").pack(side='left', padx=5)
+                        ttk.Button(c_frame, text="Xóa", command=lambda p=cid: self.deleteChar(p), style="Log.TButton").pack(side='left', padx=(5, 20))
+                        crow = crow + 1 
  
 
 

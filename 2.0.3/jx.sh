@@ -16,7 +16,11 @@ WHITE='\033[0;37m'
 NC='\033[0m'
 : "${GAMEPATH:=/home/jxser}" 
 
-SERVERIP=$(ip -4 -br a | grep -v lo | grep -v docker | awk '{print $3}' | cut -d'/' -f1)
+SERVERIP=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $3}' | cut -d'/' -f1)
+SERVERINTERFACE=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $1}')
+SERVERMAC=$(cat /sys/class/net/$SERVERINTERFACE/address | sed 's/:/-/g')
+SERVERMAC="${SERVERMAC^^}"
+
 usageInstruction(){
 
     if [ "$1" != "ip" ]; then
@@ -159,6 +163,7 @@ gameserver_stop(){
 paysys_start(){
     cleanUpLog
     syncConfig "127.0.0.1" "$SERVERIP"
+    updateAddress "account_tong" "$SERVERIP"
     if ! pgrep -f "Sword3PaySys.exe" > /dev/null; then
         echoFormat "Dang khoi dong Sword3PaySys.exe"
         /root/serversetup/paysyswin/startPaysys.sh
@@ -271,6 +276,12 @@ function backup_mssql() {
   fi
 }
 
+function updateAddress(){
+  local database_name="$1"
+  local gameIP="$2"  
+  $MSSQL_CMD -S $MSSQL_SERVER -U $MSSQL_USER -P $MSSQL_PASSWORD -d $database_name -Q "UPDATE ServerList set cIP='$gameIP', cMemo='$SERVERMAC' WHERE iid=1;"
+}
+
 
 backup(){
     echoFormat "Bat dau backup db"
@@ -369,10 +380,14 @@ elif [ "$arg1" == "ip" ]; then
             
     if [ "$#" -eq 3 ]; then
         syncConfig "$arg2" "$arg3"
+        updateAddress "account_tong" "$arg3"
+
     elif [ "$#" -eq 2 ]; then
         syncConfig "$arge2" "$SERVERIP"
+        updateAddress "account_tong" "$SERVERIP"
     else
         syncConfig "127.0.0.1" "$SERVERIP"
+        updateAddress "account_tong" "$SERVERIP"
     fi
 else
     if [ "$#" -ne 0 ]; then
