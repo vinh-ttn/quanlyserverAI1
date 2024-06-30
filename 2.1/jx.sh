@@ -227,8 +227,6 @@ full_start(){
 # Set directory format for backups
 CURRENT_TIME=$(date +%Y-%m-%d_%H-%M-%S)
 BACKUP_DIR="/home/database_backups"
-mkdir -p $BACKUP_DIR
-chmod 0777 $BACKUP_DIR
 MYSQL_USER="root"
 MYSQL_PASSWORD="1234560123"
 MYSQL_DUMP="/usr/bin/mysqldump"  # Adjust path if mysqldump is located elsewhere
@@ -240,7 +238,7 @@ function backup_mysql() {
 
   # Create backup directory if it doesn't exist
   mkdir -p "$BACKUP_DIR"
-
+  chmod 0777 $BACKUP_DIR
   # Dump the database to the specified file
   $MYSQL_DUMP -u $MYSQL_USER -p$MYSQL_PASSWORD -h 127.0.0.1 "$database_name" > "$backup_file"
 
@@ -265,6 +263,7 @@ function backup_mssql() {
 
   # Create backup directory if it doesn't exist
   mkdir -p "$BACKUP_DIR"
+  chmod 0777 "$BACKUP_DIR"
 
   # Backup the database using sqlcmd
   $MSSQL_CMD -S $MSSQL_SERVER -U $MSSQL_USER -P $MSSQL_PASSWORD -Q "BACKUP DATABASE [$database_name] TO DISK = N'$backup_file'"
@@ -302,6 +301,80 @@ backup(){
     
     thunar $BACKUP_DIR
 
+}
+
+raise_error() {
+    echoFormat "Loi: $1"
+    exit 1
+}
+patch_server(){
+ 
+    echoFormat "Ban dang cap nhat ${CYAN}${GAMEPATH}${NC}"
+    while true; do
+        
+        read -p "Vui long xac nhan dung server [co/khong]?  " user_input
+
+        if [ "$user_input" != "co" ]; then
+            echoFormat "Ket thuc cap nhat. Ban co the dong cua so nay."
+            exit 1
+        else
+            break
+        fi
+    done
+
+    while true; do
+
+        # Prompt user for target and optional branch
+        read -p "Dia chi Github de cap nhat [v.d. vinh-ttn/simcity]?  " user_input
+
+        # Validate the input format
+        if [[ $user_input =~ ^[^,]+(,[^,]+)?$ ]]; then
+            # Extract target and branch from the input
+            if [[ $user_input =~ , ]]; then
+                target=$(echo $user_input | cut -d',' -f1)
+                branch=$(echo $user_input | cut -d',' -f2)
+            else
+                target=$user_input
+                branch="main"
+            fi
+            break
+        else
+            echo "Sai dinh dang github."
+        fi
+    done
+
+    # Generate the GitHub link
+    github_link="https://github.com/$target/archive/refs/heads/$branch.tar.gz"
+
+    # Download the .tar.gz file
+    temp_dir=$(mktemp -d)
+    temp_tar="$temp_dir/archive.tar.gz"
+    wget -O "$temp_tar" "$github_link" || raise_error "Khong tim thay file $github_link de download."
+
+    # Extract the .tar.gz file to a temporary directory
+    temp_extract_dir=$(mktemp -d)
+    tar -xzvf "$temp_tar" -C "$temp_extract_dir" || raise_error "Khong the giai nen file da download."
+
+    server1_path=$(find "$temp_extract_dir" -type d -name "server1" | head -n 1)
+
+    # Check if server1 folder exists in the extracted files
+    if [ ! -d "$server1_path" ]; then
+        # Cleanup temporary files
+        rm -rf "$temp_dir"
+        rm -rf "$temp_extract_dir"
+        raise_error "Khong tim thay server1 trong file tar.gz."
+    fi
+
+    chmod -R 0777 "$server1_path/"
+
+    # Copy the contents of the server1 folder
+    cp -rfp "$server1_path/." "$GAMEPATH/server1/" || raise_error "Khong the copy files den game server."
+
+    # Cleanup temporary files
+    rm -rf "$temp_dir"
+    rm -rf "$temp_extract_dir"
+
+    echoFormat "Da cap nhat game server xong. Ban co the dong cua so nay. (Ctrl Shift W)"
 }
 ##################
 # MAIN PROGRAM
@@ -368,7 +441,22 @@ elif [ "$arg1" == "stop" ]; then
 elif [ "$arg1" == "backup" ]; then
     backup
     
-             
+     
+      
+elif [ "$arg1" == "patch" ]; then
+    if ! [ -d "$gateway_path" ]; then
+        echo "Khong tim thay thu muc game '$gateway_path'. Vui long kiem tra lai cai dat trong app"
+        exit 0  # Exit with success (0) since a directory exists
+    fi
+
+    if ! [ -d "$gameserver_path" ]; then
+        echo "Khong tim thay thu muc game '$gameserver_path'. Vui long kiem tra lai cai dat trong app"
+        exit 0  # Exit with success (0) since a directory exists
+    fi
+
+
+    patch_server
+
 elif [ "$arg1" == "help" ]; then
     if [ "$arg2" == "ip" ]; then
         usageInstruction "ip"

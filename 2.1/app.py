@@ -47,6 +47,7 @@ TRANSLATION = {
     "button_stop_all": "Tắt tất cả",
     "button_users": "Tài khoản",
     "button_changeServer": "Đổi server",
+    "button_patchServer": "Up",
     "autostart": "boot"
 }
 
@@ -55,8 +56,11 @@ def now():
 
 
 def save_dict_to_file(dict_obj, filename):
-    with open(filename, 'w') as file:
-        json.dump(dict_obj, file)
+    try:
+        with open(filename, 'w') as file:
+            json.dump(dict_obj, file)
+    except Exception as e:
+        return False    
 
 def load_dict_from_file(filename):
     try:
@@ -86,7 +90,60 @@ def is_terminal_open():
         return bool(output)
     except subprocess.CalledProcessError:
         return False 
-        
+
+class CreateToolTip(object):
+    """
+    create a tooltip for a given widget
+    """
+    def __init__(self, widget, text='widget info'):
+        self.waittime = 500     #miliseconds
+        self.wraplength = 180   #pixels
+        self.widget = widget
+        self.text = text
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.leave)
+        self.widget.bind("<ButtonPress>", self.leave)
+        self.id = None
+        self.tw = None
+
+    def enter(self, event=None):
+        self.schedule()
+
+    def leave(self, event=None):
+        self.unschedule()
+        self.hidetip()
+
+    def schedule(self):
+        self.unschedule()
+        self.id = self.widget.after(self.waittime, self.showtip)
+
+    def unschedule(self):
+        id = self.id
+        self.id = None
+        if id:
+            self.widget.after_cancel(id)
+
+    def showtip(self, event=None):
+        x = y = 0
+        x, y, cx, cy = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 20
+        # creates a toplevel window
+        self.tw = tk.Toplevel(self.widget)
+        # Leaves only the label and removes the app window
+        self.tw.wm_overrideredirect(True)
+        self.tw.wm_geometry("+%d+%d" % (x, y))
+        label = tk.Label(self.tw, text=self.text, justify='left',
+                       background="#ffffff", relief='solid', borderwidth=1,
+                       wraplength = self.wraplength)
+        label.pack(ipadx=1)
+
+    def hidetip(self):
+        tw = self.tw
+        self.tw= None
+        if tw:
+            tw.destroy()
+
 class ProcessDashboard(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -227,11 +284,15 @@ class ProcessDashboard(tk.Tk):
 
         btn_frame = ttk.Frame(table_frame)
         btn_frame.grid(row=0, column=1, sticky='e', padx=12, pady=5) 
-        changeServer_button = ttk.Button(btn_frame, text=TRANSLATION["button_changeServer"], command=lambda : self.onBtnClick("mainMenu", "changeDir_btn"), style="Backup.TButton", width=12)
+        changeServer_button = ttk.Button(btn_frame, text=TRANSLATION["button_changeServer"], command=lambda : self.onBtnClick("mainMenu", "changeDir_btn"), style="Backup.TButton", width=10)
         changeServer_button.pack(side='left', padx=2)
-        
+        CreateToolTip(changeServer_button, "Đổi sang phiên bản server khác")
+        patchServer_button = ttk.Button(btn_frame, text=TRANSLATION["button_patchServer"], command=lambda : self.onBtnClick("mainMenu", "patchServer_btn"), style="StopAll.TButton", width=3)
+        patchServer_button.pack(side='left', padx=2)
+        CreateToolTip(patchServer_button, "Cập nhật phiên bản server qua github.\n\nCảnh báo nguy hiểm:\n\n* Toàn bộ các file của game server sẽ bị chép đè bởi các file trên github.\n\n * Dùng sai github sẽ làm hư game server. \n\n * Liên hệ tác giả github đó để biết thêm chi tiết khi sử dụng chức năng này.")
         self.UI_register("mainMenu", "changeDir_btn", changeServer_button)
         self.UI_register("mainMenu", "changeDir_label", directoryText)
+        self.UI_register("mainMenu", "patchServer_btn", patchServer_button)
 
         #Line 2: app
 
@@ -243,6 +304,8 @@ class ProcessDashboard(tk.Tk):
  
         start_btn = ttk.Button(btn_frame, text="Cập nhật app", command=lambda : self.onBtnClick("mainMenu", "updateApp"), style="Backup.TButton", width=12)
         start_btn.pack(side='left', padx=2)
+        CreateToolTip(start_btn, "Cập nhật app này lên phiên bản mới nhất")
+
     
 
 
@@ -266,6 +329,8 @@ class ProcessDashboard(tk.Tk):
 
         backup_button = ttk.Button(btn_frame, text=TRANSLATION["button_backup"], command=lambda : self.onBtnClick("mainMenu", "backup_btn"), style="Backup.TButton")
         backup_button.pack(side='left', padx=2)
+        CreateToolTip(backup_button, "Tạo sao lưu dữ liệu cho MSSQL và MySQL")
+
         self.UI_register("mainMenu", "backup_btn", backup_button)
 
         currentRow = currentRow + 1
@@ -533,8 +598,10 @@ class ProcessDashboard(tk.Tk):
             if section == "updateApp":
                 self.execRawWinCommand(APP_DIR_FULL+"/../update.sh",[], True)
                 self.on_closing()
-
-                return True           
+                return True      
+            if section == "patchServer_btn":
+                self.execWinCommand(["patch"], True)
+                return True     
         else:
             
             self.disableBtn(area, section, 3)
@@ -553,14 +620,20 @@ class ProcessDashboard(tk.Tk):
         env["GAMEPATH"] = self.CONFIG["directory"]
         result = subprocess.Popen(['bash', BASH_SCRIPT] + args, env=env)
 
-    def execWinCommand(self, args):
+    def execWinCommand(self, args, hold=False):
         env = os.environ.copy()
         env["GAMEPATH"] = self.CONFIG["directory"]
 
-        if is_terminal_open():
-            result = subprocess.Popen(['xfce4-terminal', '--tab', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
+        if not hold:
+            if is_terminal_open():
+                result = subprocess.Popen(['xfce4-terminal', '--tab', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
+            else:
+                result = subprocess.Popen(['xfce4-terminal', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
         else:
-            result = subprocess.Popen(['xfce4-terminal', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
+            if is_terminal_open():
+                result = subprocess.Popen(['xfce4-terminal', '--tab', '--hold', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
+            else:
+                result = subprocess.Popen(['xfce4-terminal', '--hold', '--command', 'bash -c "{} {}"'.format(BASH_SCRIPT, ' '.join(args))], env=env)
          
     def execRawWinCommand(self, scriptLink, args, hold=False):
         env = os.environ.copy()
