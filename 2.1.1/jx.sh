@@ -14,7 +14,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[0;37m'
 NC='\033[0m'
-: "${GAMEPATH:=/home/jxser}" 
+: "${GAMEPATH:=/home/jxser}"
 
 SERVERIP=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $3}' | cut -d'/' -f1)
 SERVERINTERFACE=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $1}')
@@ -29,10 +29,10 @@ usageInstruction(){
         echoFormat "${YELLOW}JX Linux Tool${NC}"
         echoFormat "  jx ${CYAN}(start | stop | clean | backup)${NC}: dieu khien server"
         echoFormat "  jx ${CYAN}(start | stop) (bishop | s3relay | gameserver)${NC}: chay tung phan server (dev)"
-        echoFormat "  jx ${CYAN}ip (<PaysysIP>) (<GameServerIP>)${NC}: cai dat IP cua PaysysWin va GameServer vao file config"    
-        
+        echoFormat "  jx ${CYAN}ip (<PaysysIP>) (<GameServerIP>)${NC}: cai dat IP cua PaysysWin va GameServer vao file config"
+
     else
-    
+
         echoFormat "${YELLOW}GameServer IP: ${SERVERIP}${NC}"
     fi
     exit 1
@@ -58,7 +58,7 @@ sleepAbit(){
 }
 
 # MAIN PROGRAM
-cleanUpLog(){       
+cleanUpLog(){
     echoFormat "Bat dau xoa log file va core dump"
     find $GAMEPATH/server1 -type f -name "core*" -exec rm -f {} \;
     find $GAMEPATH/gateway/s3relay -type f -name "core*" -exec rm -f {} \;
@@ -73,8 +73,8 @@ cleanUpLog(){
 syncConfig(){
     cd $APPPATH
     echoFormat $(php serverconfig.php $1 $2 $GAMEPATH)
-    
-    cat $GAMEPATH/server1/servercfg.ini > $GAMEPATH/server1/servercf0.ini    
+
+    cat $GAMEPATH/server1/servercfg.ini > $GAMEPATH/server1/servercf0.ini
     TARGET="$GAMEPATH/server1/server_start"
     SYMLINK="$GAMEPATH/server1/jx_linux_y"
     if ! [ -e "$SYMLINK" ]; then
@@ -83,9 +83,9 @@ syncConfig(){
 }
 
 
-goddess_start(){ 
+goddess_start(){
     if ! pgrep -f "goddess_y" > /dev/null; then
-        echoFormat "Dang khoi dong goddess_y"                
+        echoFormat "Dang khoi dong goddess_y"
         cd $GAMEPATH/gateway
         xfce4-terminal --title=Goddess --tab --working-directory="$GAMEPATH/gateway" --command "./goddess_y"
         sleepAbit 3
@@ -99,7 +99,7 @@ goddess_stop(){
     pkill -f './goddess_y'
     sleepAbit 2
     echoFormat "Da tat xong goddess_y"
-} 
+}
 
 bishop_start(){
 
@@ -119,25 +119,25 @@ bishop_stop(){
     pkill -f './bishop_y'
     sleepAbit 2
     echoFormat "Da tat xong bishop_y"
-} 
+}
 
 s3relay_start(){
     if ! pgrep -f "s3relay_y" > /dev/null; then
         cd $GAMEPATH/gateway/s3relay
-        echoFormat "Dang chay s3relay_y"        
+        echoFormat "Dang chay s3relay_y"
         xfce4-terminal --title=S3Relay  --tab --working-directory="$GAMEPATH/gateway/s3relay" --command "./s3relay_y"
         sleepAbit 5
         echoFormat "Da chay xong s3relay_y"
     else
         echoFormat "Da co s3 relay_y dang chay"
-    fi 
+    fi
 }
 
 s3relay_stop(){
     pkill -f './s3relay_y'
     echoFormat "Da tat s3relay_y"
 }
- 
+
 
 gameserver_start(){
     if ! pgrep -f "jx_linux_y" > /dev/null; then
@@ -158,7 +158,7 @@ gameserver_stop(){
     echoFormat "Da tat game server"
 }
 
- 
+
 
 paysys_start(){
     cleanUpLog
@@ -277,14 +277,14 @@ function backup_mssql() {
 
 function updateAddress(){
   local database_name="$1"
-  local gameIP="$2"  
+  local gameIP="$2"
   $MSSQL_CMD -S $MSSQL_SERVER -U $MSSQL_USER -P $MSSQL_PASSWORD -d $database_name -Q "UPDATE ServerList set cIP='$gameIP', cMemo='$SERVERMAC' WHERE iid=1;"
 }
 
 
 backup(){
     echoFormat "Bat dau backup db"
-        
+
     # Get database names (replace with your logic to list databases)
     mysql_databases="server1"  # Replace with actual database names
     mssql_databases="account_tong"  # Replace with actual database names
@@ -298,7 +298,7 @@ backup(){
     for database in $mssql_databases; do
       backup_mssql "$database"
     done
-    
+
     thunar $BACKUP_DIR
 
 }
@@ -308,10 +308,10 @@ raise_error() {
     exit 1
 }
 patch_server(){
- 
+
     echoFormat "Ban dang cap nhat ${CYAN}${GAMEPATH}${NC}"
     while true; do
-        
+
         read -p "Vui long xac nhan dung server [co/khong]?  " user_input
 
         if [ "$user_input" != "co" ]; then
@@ -356,6 +356,7 @@ patch_server(){
     tar -xzvf "$temp_tar" -C "$temp_extract_dir" || raise_error "Khong the giai nen file da download."
 
     server1_path=$(find "$temp_extract_dir" -type d -name "server1" | head -n 1)
+    gateway_path=$(find "$temp_extract_dir" -type d -name "gateway" | head -n 1)
 
     # Check if server1 folder exists in the extracted files
     if [ ! -d "$server1_path" ]; then
@@ -368,7 +369,8 @@ patch_server(){
     chmod -R 0777 "$server1_path/"
 
     # Copy the contents of the server1 folder
-    cp -rfp "$server1_path/." "$GAMEPATH/server1/" || raise_error "Khong the copy files den game server."
+    cp -rfp "$server1_path/." "$GAMEPATH/server1/"
+    cp -rfp "$gateway_path/." "$GAMEPATH/gateway/"
 
     # Cleanup temporary files
     rm -rf "$temp_dir"
@@ -436,13 +438,13 @@ elif [ "$arg1" == "stop" ]; then
     else
         echoFormat "Khong hieu lenh 2: $arg2"
     fi
-     
-      
+
+
 elif [ "$arg1" == "backup" ]; then
     backup
-    
-     
-      
+
+
+
 elif [ "$arg1" == "patch" ]; then
     if ! [ -d "$gateway_path" ]; then
         echo "Khong tim thay thu muc game '$gateway_path'. Vui long kiem tra lai cai dat trong app"
@@ -461,11 +463,11 @@ elif [ "$arg1" == "help" ]; then
     if [ "$arg2" == "ip" ]; then
         usageInstruction "ip"
     else
-        usageInstruction    
+        usageInstruction
     fi
-    
+
 elif [ "$arg1" == "ip" ]; then
-            
+
     if [ "$#" -eq 3 ]; then
         syncConfig "$arg2" "$arg3"
         updateAddress "account_tong" "$arg3"
