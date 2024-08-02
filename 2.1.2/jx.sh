@@ -359,18 +359,15 @@ patch_server(){
     gateway_path=$(find "$temp_extract_dir" -type d -name "gateway" | head -n 1)
 
     # Check if server1 folder exists in the extracted files
-    if [ ! -d "$server1_path" ]; then
-        # Cleanup temporary files
-        rm -rf "$temp_dir"
-        rm -rf "$temp_extract_dir"
-        raise_error "Khong tim thay server1 trong file tar.gz."
+    if [ -d "$server1_path" ]; then
+        chmod -R 0777 "$server1_path/"
+        cp -rfp "$server1_path/." "$GAMEPATH/server1/"
     fi
 
-    chmod -R 0777 "$server1_path/"
-
-    # Copy the contents of the server1 folder
-    cp -rfp "$server1_path/." "$GAMEPATH/server1/"
-    cp -rfp "$gateway_path/." "$GAMEPATH/gateway/"
+    if [ -d "$gateway_path" ]; then
+        chmod -R 0777 "$gateway_path/"
+        cp -rfp "$gateway_path/." "$GAMEPATH/gateway/"
+    fi
 
     # Cleanup temporary files
     rm -rf "$temp_dir"
