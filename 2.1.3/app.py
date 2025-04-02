@@ -327,7 +327,7 @@ class ProcessDashboard(tk.Tk):
         self.selected_ip = tk.StringVar()
         
         # If there's only one IP or none, show text instead of dropdown
-        if len(ip_values) <= 0:
+        if len(ip_values) <= 1:
             # Use the one IP if available, otherwise use auto-detected IP
             if ip_values:
                 ip_value = ip_values[0]
