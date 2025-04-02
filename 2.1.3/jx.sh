@@ -424,10 +424,10 @@ gateway_path="$GAMEPATH/gateway"
 gameserver_path="$GAMEPATH/server1"
 
 # Debug output
-echoFormat "Using Server IP: $SERVERIP"
-echoFormat "Using Server MAC: $SERVERMAC"
-echoFormat "Using Gateway Path: $gateway_path"
-echoFormat "Using GameServer Path: $gameserver_path"
+echoFormat "Server IP: $SERVERIP"
+echoFormat "Server MAC: $SERVERMAC"
+echoFormat "Gateway: $gateway_path"
+echoFormat "GameServer: $gameserver_path"
 
 
 # Perform actions based on the values of arg1 and arg2
