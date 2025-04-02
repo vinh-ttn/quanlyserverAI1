@@ -6,6 +6,7 @@ import subprocess
 import json
 import socket
 import os
+import stat
 from tkinter import filedialog
 
 # Get the absolute path of the current script
@@ -31,7 +32,6 @@ if not is_executable(BASH_SCRIPT):
     make_executable(BASH_SCRIPT)
 
  
-
 CONFIGFILE = '/root/.quanlyserver.json'
 TRANSLATION = {
     "app_title": "Quản lý server",
@@ -73,6 +73,43 @@ def load_dict_from_file(filename):
         return False
     except Exception as e:
         return False
+
+def getAllNetworkInterfaces():
+    """Get all available network interfaces with their IPs and MACs"""
+    try:
+        result = subprocess.run(["ip", "-o", "-4", "addr", "show"], 
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        interfaces = []
+        
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            for line in lines:
+                parts = line.split()
+                if len(parts) >= 4:
+                    interface = parts[1]
+                    # Skip loopback and docker interfaces
+                    if interface == 'lo' or 'docker' in interface:
+                        continue
+                    
+                    # Extract IP address
+                    ip_with_prefix = parts[3]
+                    ip = ip_with_prefix.split('/')[0]
+                    
+                    # Get MAC address for this interface
+                    mac_result = subprocess.run(["cat", f"/sys/class/net/{interface}/address"], 
+                                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    mac = mac_result.stdout.strip().upper().replace(':', '-') if mac_result.returncode == 0 else ""
+                    
+                    interfaces.append({
+                        "interface": interface,
+                        "ip": ip,
+                        "mac": mac
+                    })
+        
+        return interfaces
+    except Exception as e:
+        print(f"Error getting network interfaces: {e}")
+        return []
 
 def getLANIP():
     try:
@@ -174,6 +211,7 @@ class ProcessDashboard(tk.Tk):
 
         style.configure("TCheckbutton", background="#ffffff", foreground="#333", borderwidth=0)
         style.configure("TFrame", background="#ffffff", borderwidth=0)
+        style.configure("TCombobox", background="#ffffff", fieldbackground="#ffffff")
 
         style.configure("SectionHeader.TFrame", background=menuColor, borderwidth=0)
         
@@ -205,6 +243,18 @@ class ProcessDashboard(tk.Tk):
                 "directory" : "/home/jxser_8.1_vinh"
             }
 
+        # Get all available network interfaces
+        self.network_interfaces = getAllNetworkInterfaces()
+        
+        # Set default IP and MAC if not already in config
+        if 'server_ip' not in self.CONFIG and self.network_interfaces:
+            self.CONFIG['server_ip'] = self.network_interfaces[0]['ip']
+            self.CONFIG['server_mac'] = self.network_interfaces[0]['mac']
+        elif 'server_ip' not in self.CONFIG:
+            # Fallback to old method if no interfaces found
+            self.CONFIG['server_ip'] = getLANIP()
+            self.CONFIG['server_mac'] = ""
+
         # Local var for the app
         self.processes = {
             "PaySys": { "status": False },
@@ -222,8 +272,8 @@ class ProcessDashboard(tk.Tk):
         self.UI = {} 
  
         # Render section on screen
-        #self.UI_render_appIP(0)
-        self.UI_render_mainHeader(1)
+        self.UI_render_appIP(0)
+        #self.UI_render_mainHeader(1)
         self.UI_render_mainController(2)
         self.UI_render_appProcesses(3)
         
@@ -246,9 +296,9 @@ class ProcessDashboard(tk.Tk):
         table_frame.grid(row=row, column=0, sticky="nsew")
 
         # Create a frame for the table1
-        ipText = ttk.Label(table_frame, text="Server "+getLANIP(), style="SectionHeader.TLabel")
+        ipText = ttk.Label(table_frame, text="Server "+self.CONFIG['server_ip'], style="SectionHeader.TLabel")
         ipText.pack(side='left', padx=(0,5))
-
+        self.UI_register("mainMenu", "ip_label", ipText)
 
     def UI_render_systemHeader(self, row):
         table_frame = ttk.Frame(self, padding="15", style="SectionHeader.TFrame")
@@ -258,20 +308,89 @@ class ProcessDashboard(tk.Tk):
         ipText = ttk.Label(table_frame, text="Công cụ khác", style="SectionHeader.TLabel")
         ipText.pack(side='left', padx=(0,5))
 
-
-        
-    def UI_render_appIP(self,row):
-        table_frame = ttk.Frame(self, padding="0 10", style="TFrame")
+    def UI_render_appIP(self, row):
+        table_frame = ttk.Frame(self, padding="10 10", style="SectionHeader.TFrame")
         table_frame.grid(row=row, column=0, sticky="nsew")
 
-        # Create a frame for the table1
-        ipText = ttk.Label(table_frame, text="IP: "+getLANIP(), style="IP.TLabel")
-        ipText.grid(row=0, column=0, sticky='ew', padx=15, pady=(20,10))
+        # Create a frame for the IP selection
+        ip_frame = ttk.Frame(table_frame, style="SectionHeader.TFrame")
+        ip_frame.grid(row=0, column=0, sticky='nsew', padx=15, pady=(5,5))
+        
+        # IP Address label/dropdown
+        ip_label = ttk.Label(ip_frame, text="Server", style="SectionHeader.TLabel")
+        ip_label.grid(row=0, column=0, sticky='w', pady=(5,0))
+        
+        # Get list of IPs for dropdown
+        ip_values = [interface['ip'] for interface in self.network_interfaces]
+        
+        # Create StringVar for IP tracking
+        self.selected_ip = tk.StringVar()
+        
+        # If there's only one IP or none, show text instead of dropdown
+        if len(ip_values) <= 0:
+            # Use the one IP if available, otherwise use auto-detected IP
+            if ip_values:
+                ip_value = ip_values[0]
+            else:
+                ip_value = getLANIP()
+                
+            # Set the IP in config and save
+            self.selected_ip.set(ip_value)
+            self.CONFIG['server_ip'] = ip_value
+            
+            # Find MAC for this IP
+            for interface in self.network_interfaces:
+                if interface['ip'] == ip_value:
+                    self.CONFIG['server_mac'] = interface['mac']
+                    break
+            
+            # Save config automatically
+            save_dict_to_file(self.CONFIG, CONFIGFILE)
+            
+            # Show as text rather than dropdown
+            ip_value_label = ttk.Label(ip_frame, text=ip_value, style="SectionHeader.TLabel")
+            ip_value_label.grid(row=0, column=1, sticky='w', padx=(10,0), pady=(5,0))
+            self.UI_register("mainMenu", "ip_text", ip_value_label)
+        else:
+            # Multiple IPs - show dropdown
+            if 'server_ip' in self.CONFIG and self.CONFIG['server_ip'] in ip_values:
+                self.selected_ip.set(self.CONFIG['server_ip'])
+            else:
+                self.selected_ip.set(ip_values[0])
+                
+                # Set initial IP and MAC
+                for interface in self.network_interfaces:
+                    if interface['ip'] == ip_values[0]:
+                        self.CONFIG['server_ip'] = ip_values[0]
+                        self.CONFIG['server_mac'] = interface['mac']
+                        save_dict_to_file(self.CONFIG, CONFIGFILE)
+                        break
+            
+            ip_combo = ttk.Combobox(ip_frame, textvariable=self.selected_ip, values=ip_values, state="readonly", width=30)
+            ip_combo.grid(row=0, column=1, sticky='ew', padx=(10,0), pady=(0,0))
+            ip_combo.bind("<<ComboboxSelected>>", self.on_ip_selected)
+            self.UI_register("mainMenu", "ip_combo", ip_combo)
 
+    def on_ip_selected(self, event):
+        # Update MAC when IP is selected
+        selected_ip = self.selected_ip.get()
+        for interface in self.network_interfaces:
+            if interface['ip'] == selected_ip:
+                self.CONFIG['server_ip'] = selected_ip
+                self.CONFIG['server_mac'] = interface['mac']
+                
+                # Auto-update the UI with the selected IP
+                #if "ip_label" in self.UI["mainMenu"]:
+                #    self.UI["mainMenu"]["ip_label"].config(text="Server " + self.CONFIG['server_ip'])
+                
+                # Auto-save the config
+                save_dict_to_file(self.CONFIG, CONFIGFILE)
+                
+                # Show a small notification
+                #messagebox.showinfo("Thông báo", f"Đã tự động lưu IP: {self.CONFIG['server_ip']}")
+                break
 
     def UI_render_changeServer(self,row):
-
-
         main_frame = ttk.Frame(self, padding="15 15", style="ChangeServer.TFrame")
         main_frame.grid(row=row, column=0, sticky="nsew")
 
@@ -306,9 +425,6 @@ class ProcessDashboard(tk.Tk):
         start_btn.pack(side='left', padx=2)
         CreateToolTip(start_btn, "Cập nhật app này lên phiên bản mới nhất")
 
-    
-
-
     def UI_render_hiddenAppProcesses(self,row):
         # Create a frame for the table2
 
@@ -321,8 +437,6 @@ class ProcessDashboard(tk.Tk):
         status_label = ttk.Label(table_frame, text=TRANSLATION["status_off"], style="StatusOff.TLabel",  background="#fff")
         status_label.grid(row=currentRow, column=1, sticky='w', padx=12, pady=5)        
         self.UI_register("MSSQL", "status_label", status_label)
-
-
 
         btn_frame = ttk.Frame(table_frame)
         btn_frame.grid(row=currentRow, column=2, sticky='e', padx=12, pady=5) 
@@ -411,8 +525,6 @@ class ProcessDashboard(tk.Tk):
         self.UI_register("mainMenu", "stop_btn", stop_all_btn)
         self.UI_register("mainMenu", "users_btn", users_btn)
 
-
-
     def UI_render_authorInfo(self,row):
         # Create a frame for the table1
         introText = ttk.Label(self, text="vinhttn", style="Author.TLabel")
@@ -424,7 +536,6 @@ class ProcessDashboard(tk.Tk):
         self.UI[process_name][key] = value
         self.UI[process_name][key+"_isHidden"] = False
 
-
     def UI_execShowhideBtn(self, process_name, btnName, show):
         if not show and (not self.UI[process_name][btnName+"_isHidden"]):
             self.UI[process_name][btnName+"_isHidden"] = True
@@ -433,7 +544,6 @@ class ProcessDashboard(tk.Tk):
         if show and (self.UI[process_name][btnName+"_isHidden"]):
             self.UI[process_name][btnName+"_isHidden"] = False
             self.UI[process_name][btnName].pack(side='left', padx=2)
-
 
     def UI_setShowBtn(self, process_name, btnName, btnStatus):
         
@@ -445,10 +555,7 @@ class ProcessDashboard(tk.Tk):
                 else: 
                     return self.UI_execShowhideBtn(process_name, btnName, True)
 
-
     def UI_toggleButtons(self):
-
-
         hasMSSQL = self.hidden_processes["MSSQL"]["status"] 
         hasMySQL = self.hidden_processes["MySQL"]["status"] 
         hasWinPaysys = self.processes["PaySys"]["status"] 
@@ -618,11 +725,15 @@ class ProcessDashboard(tk.Tk):
     def execCommand(self, args):  
         env = os.environ.copy()
         env["GAMEPATH"] = self.CONFIG["directory"]
+        env["SERVER_IP"] = self.CONFIG.get("server_ip", "")
+        env["SERVER_MAC"] = self.CONFIG.get("server_mac", "")
         result = subprocess.Popen(['bash', BASH_SCRIPT] + args, env=env)
 
     def execWinCommand(self, args, hold=False):
         env = os.environ.copy()
         env["GAMEPATH"] = self.CONFIG["directory"]
+        env["SERVER_IP"] = self.CONFIG.get("server_ip", "")
+        env["SERVER_MAC"] = self.CONFIG.get("server_mac", "")
 
         if not hold:
             if is_terminal_open():
@@ -638,6 +749,8 @@ class ProcessDashboard(tk.Tk):
     def execRawWinCommand(self, scriptLink, args, hold=False):
         env = os.environ.copy()
         env["GAMEPATH"] = self.CONFIG["directory"]
+        env["SERVER_IP"] = self.CONFIG.get("server_ip", "")
+        env["SERVER_MAC"] = self.CONFIG.get("server_mac", "")
         if hold:
             if is_terminal_open():
                 result = subprocess.Popen(['xfce4-terminal', '--tab',  '--hold', '--command', 'bash -c "{} {}"'.format(scriptLink, ' '.join(args))], env=env)

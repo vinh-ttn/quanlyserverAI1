@@ -16,10 +16,23 @@ WHITE='\033[0;37m'
 NC='\033[0m'
 : "${GAMEPATH:=/home/jxser}"
 
-SERVERIP=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $3}' | cut -d'/' -f1)
-SERVERINTERFACE=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $1}')
-SERVERMAC=$(cat /sys/class/net/$SERVERINTERFACE/address | sed 's/:/-/g')
-SERVERMAC="${SERVERMAC^^}"
+# Get server IP and MAC from environment or auto-detect
+# Check if we have received SERVER_IP and SERVER_MAC from the environment
+if [ -n "$SERVER_IP" ]; then
+    SERVERIP="$SERVER_IP"
+else
+    # Auto-detect if not provided
+    SERVERIP=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $3}' | cut -d'/' -f1)
+fi
+
+if [ -n "$SERVER_MAC" ]; then
+    SERVERMAC="$SERVER_MAC"
+else
+    # Auto-detect if not provided
+    SERVERINTERFACE=$(ip -4 -br a | grep -v 'lo\|docker' | awk '{print $1}')
+    SERVERMAC=$(cat /sys/class/net/$SERVERINTERFACE/address | sed 's/:/-/g')
+    SERVERMAC="${SERVERMAC^^}"
+fi
 
 usageInstruction(){
 
@@ -157,7 +170,6 @@ gameserver_stop(){
     done
     echoFormat "Da tat game server"
 }
-
 
 
 paysys_start(){
@@ -343,6 +355,36 @@ patch_server(){
         fi
     done
 
+    # For vinh-ttn/simcity repository, backup existing simcity directory
+    if [[ "$target" == "vinh-ttn/simcity" ]]; then
+        SIMCITY_DIR="${GAMEPATH}/server1/script/global/vinh/simcity"
+        BACKUP_PARENT_DIR="${GAMEPATH}/server1/script/global/vinh"
+        
+        # Check if directory exists
+        if [ -d "$SIMCITY_DIR" ]; then
+            BACKUP_DATE=$(date +%Y-%m-%d_%H-%M-%S)
+            BACKUP_FILE="${BACKUP_PARENT_DIR}/simcity_backup_${BACKUP_DATE}.tar.gz"
+            
+            echoFormat "Dang sao luu thu muc simcity hien tai..."
+            # Create backup tar.gz with date in filename
+            tar -czf "$BACKUP_FILE" -C "$BACKUP_PARENT_DIR" simcity
+            
+            if [ $? -eq 0 ]; then
+                echoFormat "${GREEN}Da sao luu simcity vao: $BACKUP_FILE${NC}"
+                
+                # Remove existing directory
+                echoFormat "Dang xoa thu muc simcity hien tai..."
+                rm -rf "$SIMCITY_DIR"
+                echoFormat "${GREEN}Da xoa thu muc simcity hien tai${NC}"
+            else
+                echoFormat "${RED}Loi khi sao luu simcity. Tien trinh cap nhat bi huy.${NC}"
+                exit 1
+            fi
+        else
+            echoFormat "${YELLOW}Khong tim thay thu muc simcity, se tao moi.${NC}"
+        fi
+    fi
+
     # Generate the GitHub link
     github_link="https://github.com/$target/archive/refs/heads/$branch.tar.gz"
 
@@ -380,6 +422,13 @@ patch_server(){
 ##################
 gateway_path="$GAMEPATH/gateway"
 gameserver_path="$GAMEPATH/server1"
+
+# Debug output
+echoFormat "Using Server IP: $SERVERIP"
+echoFormat "Using Server MAC: $SERVERMAC"
+echoFormat "Using Gateway Path: $gateway_path"
+echoFormat "Using GameServer Path: $gameserver_path"
+
 
 # Perform actions based on the values of arg1 and arg2
 if [ "$arg1" == "start" ]; then
