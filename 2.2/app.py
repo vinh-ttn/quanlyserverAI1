@@ -48,6 +48,7 @@ TRANSLATION = {
     "button_users": "Tài khoản",
     "button_changeServer": "Đổi server",
     "button_patchServer": "Up",
+    "button_copyServer": "Copy",
     "autostart": "boot"
 }
 
@@ -398,7 +399,7 @@ class ProcessDashboard(tk.Tk):
         table_frame.grid(row=0, column=0, sticky="nsew")
 
         #Line 1: server path
-        directoryText = ttk.Label(table_frame, text="Server path: "+self.CONFIG["directory"], style="ChangeServer.TLabel")
+        directoryText = ttk.Label(table_frame, text="Server: "+self.CONFIG["directory"], style="ChangeServer.TLabel")
         directoryText.grid(row=0, column=0, sticky="e")
 
         btn_frame = ttk.Frame(table_frame)
@@ -406,12 +407,20 @@ class ProcessDashboard(tk.Tk):
         changeServer_button = ttk.Button(btn_frame, text=TRANSLATION["button_changeServer"], command=lambda : self.onBtnClick("mainMenu", "changeDir_btn"), style="Backup.TButton", width=10)
         changeServer_button.pack(side='left', padx=2)
         CreateToolTip(changeServer_button, "Đổi sang phiên bản server khác")
+        
         patchServer_button = ttk.Button(btn_frame, text=TRANSLATION["button_patchServer"], command=lambda : self.onBtnClick("mainMenu", "patchServer_btn"), style="StopAll.TButton", width=3)
         patchServer_button.pack(side='left', padx=2)
         CreateToolTip(patchServer_button, "Cập nhật phiên bản server qua github.\n\nCảnh báo nguy hiểm:\n\n* Toàn bộ các file của game server sẽ bị chép đè bởi các file trên github.\n\n * Dùng sai github sẽ làm hư game server. \n\n * Liên hệ tác giả github đó để biết thêm chi tiết khi sử dụng chức năng này.")
+        
+        copyServer_button = ttk.Button(btn_frame, text=TRANSLATION["button_copyServer"], command=lambda : self.onBtnClick("mainMenu", "copyServer_btn"), style="StopAll.TButton", width=4)
+        copyServer_button.pack(side='left', padx=2)
+        CreateToolTip(copyServer_button, "Copy server.\n\nDùng để copy Game Server JX1 từ những máy ảo khác (CentOS6,7) như pgaming, pyta, namcung v.v")
+        
+        
         self.UI_register("mainMenu", "changeDir_btn", changeServer_button)
         self.UI_register("mainMenu", "changeDir_label", directoryText)
         self.UI_register("mainMenu", "patchServer_btn", patchServer_button)
+        self.UI_register("mainMenu", "copyServer_btn", copyServer_button)
 
         #Line 2: app
 
@@ -709,6 +718,9 @@ class ProcessDashboard(tk.Tk):
             if section == "patchServer_btn":
                 self.execWinCommand(["patch"], True)
                 return True     
+            if section == "copyServer_btn":
+                self.execRawWinCommand(APP_DIR_FULL+"/../copy_server.sh",[], True)
+                return True                     
         else:
             
             self.disableBtn(area, section, 3)

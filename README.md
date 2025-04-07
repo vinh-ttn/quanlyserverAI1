@@ -17,6 +17,7 @@ Tác giả: **Vinh-TTN**
 4. Sao lưu dữ liệu MySQL và MSSQL
 5. Cập nhật phiên bản server từ GitHub
 6. Quản lý tài khoản người chơi
+7. Sao chép (Copy) game server từ máy ảo khác
 
 ## III. Cài đặt thủ công (nếu không sử dụng [Bộ cài đặt Võ Lâm Offline 1ClickVMFull](https://docs.google.com/document/d/1BUtlCyJdIg-Dc15EZLYU7dMAcGA4wzcZDMBrM3dRpcc/edit?usp=sharing))
 
@@ -29,6 +30,7 @@ Tác giả: **Vinh-TTN**
    ```
    chmod +x app.py
    chmod +x jx.sh
+   chmod +x copy_server.sh
    ```
 
 ## IV. Hướng dẫn sử dụng
@@ -39,8 +41,6 @@ Dưới quyền **root**:
 ```
 python3 app.py
 ```
-
-
 
 ### B. Chọn IP Server
 
@@ -103,7 +103,21 @@ Khi bạn chọn cập nhật từ repository `vinh-ttn/simcity`, hệ thống s
 
 Việc này đảm bảo bạn luôn có bản sao lưu của phiên bản hiện tại trước khi cập nhật, đồng thời đảm bảo cài đặt sạch sẽ không bị xung đột với các file cũ.
 
-### G. Đổi thư mục server
+### G. Sao chép Game Server từ máy khác (Copy Server)
+
+1. Nhấn nút **Copy** để bắt đầu quá trình sao chép server từ một máy khác
+2. Công cụ này dùng để sao chép Game Server từ các máy ảo khác như CentOS6.5, CentOS7 (các bộ game như pgaming, pyta82, hoiquan, v.v.)
+3. Các bước thực hiện:
+   - a. Nhập địa chỉ IP của máy chứa game server muốn sao chép
+   - b. Nhập thông tin đăng nhập (username và password)
+   - c. Nhập đường dẫn thư mục game server cần sao chép (v.d: /home/jxser)
+   - d. Hệ thống sẽ tự động tạo file nén, tải về máy hiện tại và giải nén
+4. File sao chép sẽ được lưu tại thư mục `/home/downloads`
+5. Yêu cầu:
+   - Máy chứa game server cần sao chép phải kết nối được từ máy 1ClickVMFull
+   - Nên kiểm tra kết nối bằng lệnh ping trước khi sử dụng công cụ này
+
+### H. Đổi thư mục server
 
 1. Nhấn nút **Đổi server** để chọn thư mục server JX1 khác
 2. Thư mục mặc định là `/home/jxser_8.1_vinh`
@@ -115,12 +129,17 @@ Việc này đảm bảo bạn luôn có bản sao lưu của phiên bản hiệ
 3. `users.py`: Công cụ quản lý tài khoản người dùng
 4. `serverconfig.php`: Script PHP hỗ trợ tạo cấu hình cho server
 5. `gameconfigs/`: Thư mục chứa các file cấu hình mẫu
+6. `copy_server.sh`: Script hỗ trợ sao chép server từ máy khác
 
 ## VI. Xử lý sự cố
 
 1. **Không hiển thị IP**: Kiểm tra quyền truy cập và cấu hình mạng
 2. **Lỗi khởi động dịch vụ**: Kiểm tra logs trong thư mục tương ứng
 3. **Lỗi khi cập nhật từ GitHub**: Kiểm tra kết nối mạng và địa chỉ repository
+4. **Lỗi khi sao chép server**: 
+   - Kiểm tra kết nối mạng đến máy chứa server nguồn
+   - Đảm bảo thông tin đăng nhập chính xác
+   - Kiểm tra đường dẫn thư mục server nguồn
 
 ## VII. Thông tin thêm
 
