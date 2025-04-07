@@ -89,7 +89,7 @@ done
 
 # After verifying ping, ask for credentials
 read -p "$MSG_ENTER_USERNAME" USERNAME
-read -s -p "$MSG_ENTER_PASSWORD" PASSWORD
+read -p "$MSG_ENTER_PASSWORD" PASSWORD
 echo
 
 # Generate a timestamp for the backup file
