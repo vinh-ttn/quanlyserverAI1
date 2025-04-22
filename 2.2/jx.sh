@@ -320,100 +320,364 @@ raise_error() {
     exit 1
 }
 patch_server(){
+    
+    
+    # Show menu options
+    echo -e "\nLua chon cach cap nhat:"
+    echo "[1] Cai dat/cap nhat SimCity moi nhat"
+    echo "[2] Download cac gameserver tu github vinh-ttn/jx1-gs"
+    echo "[3] Download cac gameserver tu github khac"
+    echo "[4] Cai dat/cap nhat (github khac)"
+    echo -e "\nVui long chon mot lua chon (1-4):"
+    read option_choice
 
-    echoFormat "Ban dang cap nhat ${CYAN}${GAMEPATH}${NC}"
-    while true; do
+    # Validate user choice
+    if ! [[ "$option_choice" =~ ^[1-4]$ ]]; then
+        echoFormat "Lua chon khong hop le"
+        return 1
+    fi
 
-        read -p "Vui long xac nhan dung server [co/khong]?  " user_input
-
-        if [ "$user_input" != "co" ]; then
-            echoFormat "Ket thuc cap nhat. Ban co the dong cua so nay."
-            exit 1
-        else
-            break
-        fi
-    done
-
-    while true; do
-
-        # Prompt user for target and optional branch
-        read -p "Dia chi Github de cap nhat [v.d. vinh-ttn/simcity]?  " user_input
-
-        # Validate the input format
-        if [[ $user_input =~ ^[^,]+(,[^,]+)?$ ]]; then
-            # Extract target and branch from the input
-            if [[ $user_input =~ , ]]; then
-                target=$(echo $user_input | cut -d',' -f1)
-                branch=$(echo $user_input | cut -d',' -f2)
+    # For options 1 and 4, confirm server stop
+    if [ "$option_choice" == "1" ] || [ "$option_choice" == "4" ]; then
+        echoFormat "Ban dang cap nhat ${CYAN}${GAMEPATH}${NC}"
+        while true; do
+            read -p "Vui long xac nhan dung server [co/khong]?  " user_input
+            if [ "$user_input" != "co" ]; then
+                echoFormat "Ket thuc cap nhat. Ban co the dong cua so nay."
+                return 1
             else
-                target=$user_input
-                branch="main"
+                break
             fi
-            break
-        else
-            echo "Sai dinh dang github."
-        fi
-    done
+        done
+    fi
 
-    # For vinh-ttn/simcity repository, backup existing simcity directory
-    if [[ "$target" == "vinh-ttn/simcity" ]]; then
-        SIMCITY_DIR="${GAMEPATH}/server1/script/global/vinh/simcity"
-        BACKUP_PARENT_DIR="${GAMEPATH}/server1/script/global/vinh"
-        
-        # Check if directory exists
-        if [ -d "$SIMCITY_DIR" ]; then
-            BACKUP_DATE=$(date +%Y-%m-%d_%H-%M-%S)
-            BACKUP_FILE="${BACKUP_PARENT_DIR}/simcity_backup_${BACKUP_DATE}.tar.gz"
+    # Handle different options
+    case $option_choice in
+        1)  # Cai dat simcity
+            target="vinh-ttn/simcity"
+            branch="main"
+            ;;
+        2)  # Download gameserver (vinh-ttn/jx1-gs)
+            # Download and process using the new gameserver download logic
+            INDEX_URL="https://raw.githubusercontent.com/vinh-ttn/jx1-gs/refs/heads/main/index.txt"
+            RAW_CONTENT_URL="https://raw.githubusercontent.com/vinh-ttn/jx1-gs/refs/heads/main"
             
-            echoFormat "Dang sao luu thu muc simcity hien tai..."
-            # Create backup tar.gz with date in filename
-            tar -czf "$BACKUP_FILE" -C "$BACKUP_PARENT_DIR" simcity
-            
-            if [ $? -eq 0 ]; then
-                echoFormat "${GREEN}Da sao luu simcity vao: $BACKUP_FILE${NC}"
+            # Download and parse index.txt
+            echo "Dang tai danh sach tap tin..."
+            index_content=$(wget -qO- "$INDEX_URL")
+            if [ $? -ne 0 ]; then
+                echoFormat "Loi: Khong the tai danh sach tap tin"
+                return 1
+            fi
+
+            # Find all entries containing jxser.tar.gz
+            declare -a available_paths
+            while IFS= read -r line; do
+                if [[ "$line" == *"jxser.tar.gz"* ]]; then
+                    folder_path=$(dirname "$line")
+                    available_paths+=("$folder_path")
+                fi
+            done <<< "$index_content"
+
+            if [ ${#available_paths[@]} -eq 0 ]; then
+                echoFormat "Loi: Khong tim thay tap tin jxser.tar.gz trong danh sach"
+                return 1
+            fi
+
+            while true; do
+                # List available folders
+                echo -e "\nCac thu muc co san:"
+                for i in "${!available_paths[@]}"; do
+                    echo "[$i] ${available_paths[$i]}"
+                done
                 
-                # Remove existing directory
-                echoFormat "Dang xoa thu muc simcity hien tai..."
-                rm -rf "$SIMCITY_DIR"
-                echoFormat "${GREEN}Da xoa thu muc simcity hien tai${NC}"
-            else
-                echoFormat "${RED}Loi khi sao luu simcity. Tien trinh cap nhat bi huy.${NC}"
-                exit 1
+                # Ask user to choose folder
+                echo -e "\nVui long chon mot thu muc (nhap so):"
+                read choice
+                
+                if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -lt ${#available_paths[@]} ]; then
+                    chosen_path="${available_paths[$choice]}"
+                    break
+                else
+                    echoFormat "Loi: Lua chon khong hop le"
+                fi
+            done
+
+            # Ask for target extraction folder
+            while true; do
+                echo -e "\nNhap ten thu muc de giai nen vao (khong duoc de trong):"
+                read target_folder
+                
+                if [ -z "$target_folder" ]; then
+                    echo "Loi: Ten thu muc khong duoc de trong"
+                    continue
+                fi
+
+                # Check if folder exists
+                if [ -d "/home/${target_folder}" ]; then
+                    echo "Loi: Thu muc '/home/$target_folder' da ton tai. Vui long chon ten khac"
+                    continue
+                fi
+                
+                break
+            done
+
+            # Download and extract
+            source_url="$RAW_CONTENT_URL/${chosen_path}/jxser.tar.gz"
+            echo -e "\nDang tai tap tin tu $source_url..."
+            
+            # Create temporary directory
+            temp_dir=$(mktemp -d)
+            temp_file="$temp_dir/jxser.tar.gz"
+            extract_dir="$temp_dir/extract"
+            mkdir -p "$extract_dir"
+
+            if ! wget -q "$source_url" -O "$temp_file"; then
+                echoFormat "Loi: Khong the tai tap tin"
+                rm -rf "$temp_dir"
+                return 1
             fi
-        else
-            echoFormat "${YELLOW}Khong tim thay thu muc simcity, se tao moi.${NC}"
+
+            echo "Dang giai nen tap tin..."
+            if ! tar -xzf "$temp_file" -C "$extract_dir"; then
+                echoFormat "Loi: Khong the giai nen tap tin"
+                rm -rf "$temp_dir"
+                return 1
+            fi
+
+            # Check for required folders
+            if ! { [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; } && \
+               ! { [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; }; then
+                echoFormat "Loi: Khong tim thay thu muc server1 va gateway trong tap tin"
+                rm -rf "$temp_dir"
+                return 1
+            fi
+
+            # Create target directory
+            mkdir -p "/home/${target_folder}"
+
+            # Copy files to target directory
+            if [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; then
+                cp -rfp "$extract_dir/server1" "$extract_dir/gateway" "/home/${target_folder}/"
+            elif [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; then
+                cp -rfp "$extract_dir/jxser/server1" "$extract_dir/jxser/gateway" "/home/${target_folder}/"
+            fi
+
+            chmod -R 0777 "/home/${target_folder}/server1"
+            chmod -R 0777 "/home/${target_folder}/gateway"
+
+            # Cleanup
+            rm -rf "$temp_dir"
+            echoFormat "Da cap nhat game server xong"
+            return 0
+            ;;
+        3)  # Download gameserver (khac)
+            while true; do
+                read -p "Nhap dia chi Github [v.d. username/repo]?  " user_input
+                if [[ $user_input =~ ^[^/]+/[^/]+$ ]]; then
+                    INDEX_URL="https://raw.githubusercontent.com/$user_input/refs/heads/main/index.txt"
+                    RAW_CONTENT_URL="https://raw.githubusercontent.com/$user_input/refs/heads/main"
+                    break
+                else
+                    echoFormat "Sai dinh dang github. Can nhap theo dang username/repo"
+                fi
+            done
+            
+            # Reuse the same download and extract logic as option 2
+            # Download and parse index.txt
+            echo "Dang tai danh sach tap tin..."
+            index_content=$(wget -qO- "$INDEX_URL")
+            if [ $? -ne 0 ]; then
+                echoFormat "Loi: Khong the tai danh sach tap tin"
+                return 1
+            fi
+
+            # Find all entries containing jxser.tar.gz
+            declare -a available_paths
+            while IFS= read -r line; do
+                if [[ "$line" == *"jxser.tar.gz"* ]]; then
+                    folder_path=$(dirname "$line")
+                    available_paths+=("$folder_path")
+                fi
+            done <<< "$index_content"
+
+            if [ ${#available_paths[@]} -eq 0 ]; then
+                echoFormat "Loi: Khong tim thay tap tin jxser.tar.gz trong danh sach"
+                return 1
+            fi
+
+            while true; do
+                # List available folders
+                echo -e "\nCac thu muc co san:"
+                for i in "${!available_paths[@]}"; do
+                    echo "[$i] ${available_paths[$i]}"
+                done
+                
+                # Ask user to choose folder
+                echo -e "\nVui long chon mot thu muc (nhap so):"
+                read choice
+                
+                if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -lt ${#available_paths[@]} ]; then
+                    chosen_path="${available_paths[$choice]}"
+                    break
+                else
+                    echoFormat "Loi: Lua chon khong hop le"
+                fi
+            done
+
+            # Ask for target extraction folder
+            while true; do
+                echo -e "\nNhap ten thu muc de giai nen vao (khong duoc de trong):"
+                read target_folder
+                
+                if [ -z "$target_folder" ]; then
+                    echo "Loi: Ten thu muc khong duoc de trong"
+                    continue
+                fi
+
+                # Check if folder exists
+                if [ -d "/home/${target_folder}" ]; then
+                    echo "Loi: Thu muc '/home/$target_folder' da ton tai. Vui long chon ten khac"
+                    continue
+                fi
+                
+                break
+            done
+
+            # Download and extract
+            source_url="$RAW_CONTENT_URL/${chosen_path}/jxser.tar.gz"
+            echo -e "\nDang tai tap tin tu $source_url..."
+            
+            # Create temporary directory
+            temp_dir=$(mktemp -d)
+            temp_file="$temp_dir/jxser.tar.gz"
+            extract_dir="$temp_dir/extract"
+            mkdir -p "$extract_dir"
+
+            if ! wget -q "$source_url" -O "$temp_file"; then
+                echoFormat "Loi: Khong the tai tap tin"
+                rm -rf "$temp_dir"
+                return 1
+            fi
+
+            echo "Dang giai nen tap tin..."
+            if ! tar -xzf "$temp_file" -C "$extract_dir"; then
+                echoFormat "Loi: Khong the giai nen tap tin"
+                rm -rf "$temp_dir"
+                return 1
+            fi
+
+            # Check for required folders
+            if ! { [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; } && \
+               ! { [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; }; then
+                echoFormat "Loi: Khong tim thay thu muc server1 va gateway trong tap tin"
+                rm -rf "$temp_dir"
+                return 1
+            fi
+
+            # Create target directory
+            mkdir -p "/home/${target_folder}"
+
+            # Copy files to target directory
+            if [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; then
+                cp -rfp "$extract_dir/server1" "$extract_dir/gateway" "/home/${target_folder}/"
+            elif [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; then
+                cp -rfp "$extract_dir/jxser/server1" "$extract_dir/jxser/gateway" "/home/${target_folder}/"
+            fi
+
+            chmod -R 0777 "/home/${target_folder}/server1"
+            chmod -R 0777 "/home/${target_folder}/gateway"
+
+            # Cleanup
+            rm -rf "$temp_dir"
+            echoFormat "Da cap nhat game server xong"
+            return 0
+            ;;
+        4)  # Cai dat khac
+            while true; do
+                # Prompt user for target and optional branch
+                read -p "Dia chi Github de cap nhat [v.d. vinh-ttn/simcity]?  " user_input
+
+                # Validate the input format
+                if [[ $user_input =~ ^[^,]+(,[^,]+)?$ ]]; then
+                    # Extract target and branch from the input
+                    if [[ $user_input =~ , ]]; then
+                        target=$(echo $user_input | cut -d',' -f1)
+                        branch=$(echo $user_input | cut -d',' -f2)
+                    else
+                        target=$user_input
+                        branch="main"
+                    fi
+                    break
+                else
+                    echo "Sai dinh dang github."
+                fi
+            done
+            ;;
+    esac
+
+    # For options 1 and 4, handle simcity and other installations
+    if [ "$option_choice" == "1" ] || [ "$option_choice" == "4" ]; then
+        # For vinh-ttn/simcity repository, backup existing simcity directory
+        if [[ "$target" == "vinh-ttn/simcity" ]]; then
+            SIMCITY_DIR="${GAMEPATH}/server1/script/global/vinh/simcity"
+            BACKUP_PARENT_DIR="${GAMEPATH}/server1/script/global/vinh"
+            
+            # Check if directory exists
+            if [ -d "$SIMCITY_DIR" ]; then
+                BACKUP_DATE=$(date +%Y-%m-%d_%H-%M-%S)
+                BACKUP_FILE="${BACKUP_PARENT_DIR}/simcity_backup_${BACKUP_DATE}.tar.gz"
+                
+                echoFormat "Dang sao luu thu muc simcity hien tai..."
+                # Create backup tar.gz with date in filename
+                tar -czf "$BACKUP_FILE" -C "$BACKUP_PARENT_DIR" simcity
+                
+                if [ $? -eq 0 ]; then
+                    echoFormat "${GREEN}Da sao luu simcity vao: $BACKUP_FILE${NC}"
+                    
+                    # Remove existing directory
+                    echoFormat "Dang xoa thu muc simcity hien tai..."
+                    rm -rf "$SIMCITY_DIR"
+                    echoFormat "${GREEN}Da xoa thu muc simcity hien tai${NC}"
+                else
+                    echoFormat "${RED}Loi khi sao luu simcity. Tien trinh cap nhat bi huy.${NC}"
+                    return 1
+                fi
+            else
+                echoFormat "${YELLOW}Khong tim thay thu muc simcity, se tao moi.${NC}"
+            fi
         fi
+
+        # Generate the GitHub link
+        github_link="https://github.com/$target/archive/refs/heads/$branch.tar.gz"
+
+        # Download the .tar.gz file
+        temp_dir=$(mktemp -d)
+        temp_tar="$temp_dir/archive.tar.gz"
+        wget -O "$temp_tar" "$github_link" || raise_error "Khong tim thay file $github_link de download."
+
+        # Extract the .tar.gz file to a temporary directory
+        temp_extract_dir=$(mktemp -d)
+        tar -xzvf "$temp_tar" -C "$temp_extract_dir" || raise_error "Khong the giai nen file da download."
+
+        server1_path=$(find "$temp_extract_dir" -type d -name "server1" | head -n 1)
+        gateway_path=$(find "$temp_extract_dir" -type d -name "gateway" | head -n 1)
+
+        # Check if server1 folder exists in the extracted files
+        if [ -d "$server1_path" ]; then
+            chmod -R 0777 "$server1_path/"
+            cp -rfp "$server1_path/." "$GAMEPATH/server1/"
+        fi
+
+        if [ -d "$gateway_path" ]; then
+            chmod -R 0777 "$gateway_path/"
+            cp -rfp "$gateway_path/." "$GAMEPATH/gateway/"
+        fi
+
+        # Cleanup temporary files
+        rm -rf "$temp_dir"
+        rm -rf "$temp_extract_dir"
     fi
-
-    # Generate the GitHub link
-    github_link="https://github.com/$target/archive/refs/heads/$branch.tar.gz"
-
-    # Download the .tar.gz file
-    temp_dir=$(mktemp -d)
-    temp_tar="$temp_dir/archive.tar.gz"
-    wget -O "$temp_tar" "$github_link" || raise_error "Khong tim thay file $github_link de download."
-
-    # Extract the .tar.gz file to a temporary directory
-    temp_extract_dir=$(mktemp -d)
-    tar -xzvf "$temp_tar" -C "$temp_extract_dir" || raise_error "Khong the giai nen file da download."
-
-    server1_path=$(find "$temp_extract_dir" -type d -name "server1" | head -n 1)
-    gateway_path=$(find "$temp_extract_dir" -type d -name "gateway" | head -n 1)
-
-    # Check if server1 folder exists in the extracted files
-    if [ -d "$server1_path" ]; then
-        chmod -R 0777 "$server1_path/"
-        cp -rfp "$server1_path/." "$GAMEPATH/server1/"
-    fi
-
-    if [ -d "$gateway_path" ]; then
-        chmod -R 0777 "$gateway_path/"
-        cp -rfp "$gateway_path/." "$GAMEPATH/gateway/"
-    fi
-
-    # Cleanup temporary files
-    rm -rf "$temp_dir"
-    rm -rf "$temp_extract_dir"
 
     echoFormat "Da cap nhat game server xong. Ban co the dong cua so nay. (Ctrl Shift W)"
 }
