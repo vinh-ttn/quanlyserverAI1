@@ -431,8 +431,8 @@ download_and_extract_gameserver() {
     chmod -R 0777 "/home/${target_folder}/server1"
     chmod -R 0777 "/home/${target_folder}/gateway"
 
-    echoFormat "Da cap nhat game server xong. Nho dong bo client (client patch). Download o day: https://github.com/$repo_path/tree/main/${chosen_path}"
-    echoFormat "Ban co the dong cua so nay. (Ctrl Shift W)"
+    echoFormat "Da cap nhat game server xong (ban co the tim file de dong bo Client o day https://github.com/$repo_path/tree/main/${chosen_path})"
+    echoFormat "Co the dong cua so nay (Ctrl Shift W)"
     return 0
 }
 
