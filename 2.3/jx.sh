@@ -322,8 +322,9 @@ raise_error() {
 
 # Function to download and extract gameserver from a GitHub repository
 download_and_extract_gameserver() {
-    local INDEX_URL="$1"
-    local RAW_CONTENT_URL="$2"
+    local repo_path="$1"
+    local INDEX_URL="https://raw.githubusercontent.com/$repo_path/refs/heads/main/index.txt"
+    local RAW_CONTENT_URL="https://raw.githubusercontent.com/$repo_path/refs/heads/main"
     
     # Download and parse index.txt
     echo "Dang tai danh sach tap tin..."
@@ -430,12 +431,12 @@ download_and_extract_gameserver() {
     chmod -R 0777 "/home/${target_folder}/server1"
     chmod -R 0777 "/home/${target_folder}/gateway"
 
-    echoFormat "Da cap nhat game server xong"
+    echoFormat "Da cap nhat game server xong. Nho dong bo client (client patch). Download o day: https://github.com/$repo_path/tree/main/${chosen_path}"
+    echoFormat "Ban co the dong cua so nay. (Ctrl Shift W)"
     return 0
 }
 
 patch_server(){
-    
     # Show menu options
     echo -e "\nLua chon cach cap nhat:"
     echo "[1] Cai dat/cap nhat SimCity moi nhat"
@@ -472,25 +473,19 @@ patch_server(){
             branch="main"
             ;;
         2)  # Download gameserver (vinh-ttn/jx1-gs)
-            INDEX_URL="https://raw.githubusercontent.com/vinh-ttn/jx1-gs/refs/heads/main/index.txt"
-            RAW_CONTENT_URL="https://raw.githubusercontent.com/vinh-ttn/jx1-gs/refs/heads/main"
-            download_and_extract_gameserver "$INDEX_URL" "$RAW_CONTENT_URL"
+            download_and_extract_gameserver "vinh-ttn/jx1-gs"
             return $?
             ;;
         3)  # Download gameserver (khac)
             while true; do
                 read -p "Nhap dia chi Github [v.d. username/repo]?  " user_input
                 if [[ $user_input =~ ^[^/]+/[^/]+$ ]]; then
-                    INDEX_URL="https://raw.githubusercontent.com/$user_input/refs/heads/main/index.txt"
-                    RAW_CONTENT_URL="https://raw.githubusercontent.com/$user_input/refs/heads/main"
-                    break
+                    download_and_extract_gameserver "$user_input"
+                    return $?
                 else
                     echoFormat "Sai dinh dang github. Can nhap theo dang username/repo"
                 fi
             done
-            
-            download_and_extract_gameserver "$INDEX_URL" "$RAW_CONTENT_URL"
-            return $?
             ;;
         4)  # Cai dat khac
             while true; do
@@ -579,6 +574,7 @@ patch_server(){
     fi
 
     echoFormat "Da cap nhat game server xong. Ban co the dong cua so nay. (Ctrl Shift W)"
+    echoFormat "Link Github: https://github.com/$target"
 }
 ##################
 # MAIN PROGRAM
