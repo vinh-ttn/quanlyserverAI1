@@ -350,13 +350,13 @@ download_and_extract_gameserver() {
 
     while true; do
         # List available folders
-        echo -e "\nCac thu muc co san:"
+        echo -e "\nCac game server co san:"
         for i in "${!available_paths[@]}"; do
             echo "[$i] ${available_paths[$i]}"
         done
         
         # Ask user to choose folder
-        echo -e "\nVui long chon mot thu muc (nhap so):"
+        echo -e "\nVui long chon game server de download (nhap so):"
         read choice
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -lt ${#available_paths[@]} ]; then
@@ -369,17 +369,17 @@ download_and_extract_gameserver() {
 
     # Ask for target extraction folder
     while true; do
-        echo -e "\nNhap ten thu muc de giai nen vao (khong duoc de trong):"
+        echo -e "\nDat ten cho thu muc game server nay (khong dau, khong khoang cach, khong ky tu dac biet):"
         read target_folder
         
         if [ -z "$target_folder" ]; then
-            echo "Loi: Ten thu muc khong duoc de trong"
+            echo "Loi: Ten khong duoc de trong"
             continue
         fi
 
         # Check if folder exists
         if [ -d "/home/${target_folder}" ]; then
-            echo "Loi: Thu muc '/home/$target_folder' da ton tai. Vui long chon ten khac"
+            echo "Loi: '/home/$target_folder' da ton tai. Vui long chon ten khac"
             continue
         fi
         
