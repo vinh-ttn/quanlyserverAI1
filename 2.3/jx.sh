@@ -319,8 +319,122 @@ raise_error() {
     echoFormat "Loi: $1"
     exit 1
 }
-patch_server(){
+
+# Function to download and extract gameserver from a GitHub repository
+download_and_extract_gameserver() {
+    local INDEX_URL="$1"
+    local RAW_CONTENT_URL="$2"
     
+    # Download and parse index.txt
+    echo "Dang tai danh sach tap tin..."
+    index_content=$(wget -qO- "$INDEX_URL")
+    if [ $? -ne 0 ]; then
+        echoFormat "Loi: Khong the tai danh sach tap tin"
+        return 1
+    fi
+
+    # Find all entries containing jxser.tar.gz
+    declare -a available_paths
+    while IFS= read -r line; do
+        if [[ "$line" == *"jxser.tar.gz"* ]]; then
+            folder_path=$(dirname "$line")
+            available_paths+=("$folder_path")
+        fi
+    done <<< "$index_content"
+
+    if [ ${#available_paths[@]} -eq 0 ]; then
+        echoFormat "Loi: Khong tim thay tap tin jxser.tar.gz trong danh sach"
+        return 1
+    fi
+
+    while true; do
+        # List available folders
+        echo -e "\nCac thu muc co san:"
+        for i in "${!available_paths[@]}"; do
+            echo "[$i] ${available_paths[$i]}"
+        done
+        
+        # Ask user to choose folder
+        echo -e "\nVui long chon mot thu muc (nhap so):"
+        read choice
+        
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -lt ${#available_paths[@]} ]; then
+            chosen_path="${available_paths[$choice]}"
+            break
+        else
+            echoFormat "Loi: Lua chon khong hop le"
+        fi
+    done
+
+    # Ask for target extraction folder
+    while true; do
+        echo -e "\nNhap ten thu muc de giai nen vao (khong duoc de trong):"
+        read target_folder
+        
+        if [ -z "$target_folder" ]; then
+            echo "Loi: Ten thu muc khong duoc de trong"
+            continue
+        fi
+
+        # Check if folder exists
+        if [ -d "/home/${target_folder}" ]; then
+            echo "Loi: Thu muc '/home/$target_folder' da ton tai. Vui long chon ten khac"
+            continue
+        fi
+        
+        break
+    done
+
+    # Download and extract
+    source_url="$RAW_CONTENT_URL/${chosen_path}/jxser.tar.gz"
+    echo -e "\nDang tai tap tin tu $source_url..."
+    
+    # Create temporary directory just for the downloaded file
+    temp_dir=$(mktemp -d)
+    temp_file="$temp_dir/jxser.tar.gz"
+
+    if ! wget -q "$source_url" -O "$temp_file"; then
+        echoFormat "Loi: Khong the tai tap tin"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    # Create target directory
+    mkdir -p "/home/${target_folder}"
+
+    echo "Dang giai nen tap tin..."
+    if ! tar -xvzf "$temp_file" -C "/home/${target_folder}"; then
+        echoFormat "Loi: Khong the giai nen tap tin"
+        rm -rf "$temp_dir"
+        rm -rf "/home/${target_folder}"  # Clean up target dir if extraction failed
+        return 1
+    fi
+
+    # Cleanup downloaded file
+    rm -rf "$temp_dir"
+
+    # Check for required folders and fix paths if needed
+    if [ -d "/home/${target_folder}/server1" ] && [ -d "/home/${target_folder}/gateway" ]; then
+        # Files are in the correct structure already
+        :
+    elif [ -d "/home/${target_folder}/jxser/server1" ] && [ -d "/home/${target_folder}/jxser/gateway" ]; then
+        # Move files from jxser subdirectory to target directory
+        mv "/home/${target_folder}/jxser/server1" "/home/${target_folder}/jxser/gateway" "/home/${target_folder}/"
+        rm -rf "/home/${target_folder}/jxser"
+    else
+        echoFormat "Loi: Khong tim thay thu muc server1 va gateway trong tap tin"
+        rm -rf "/home/${target_folder}"
+        return 1
+    fi
+
+    chmod -R 0777 "/home/${target_folder}/server1"
+    chmod -R 0777 "/home/${target_folder}/gateway"
+
+    echoFormat "Da cap nhat game server xong"
+    return 0
+}
+
+patch_server(){
     
     # Show menu options
     echo -e "\nLua chon cach cap nhat:"
@@ -358,118 +472,10 @@ patch_server(){
             branch="main"
             ;;
         2)  # Download gameserver (vinh-ttn/jx1-gs)
-            # Download and process using the new gameserver download logic
             INDEX_URL="https://raw.githubusercontent.com/vinh-ttn/jx1-gs/refs/heads/main/index.txt"
             RAW_CONTENT_URL="https://raw.githubusercontent.com/vinh-ttn/jx1-gs/refs/heads/main"
-            
-            # Download and parse index.txt
-            echo "Dang tai danh sach tap tin..."
-            index_content=$(wget -qO- "$INDEX_URL")
-            if [ $? -ne 0 ]; then
-                echoFormat "Loi: Khong the tai danh sach tap tin"
-                return 1
-            fi
-
-            # Find all entries containing jxser.tar.gz
-            declare -a available_paths
-            while IFS= read -r line; do
-                if [[ "$line" == *"jxser.tar.gz"* ]]; then
-                    folder_path=$(dirname "$line")
-                    available_paths+=("$folder_path")
-                fi
-            done <<< "$index_content"
-
-            if [ ${#available_paths[@]} -eq 0 ]; then
-                echoFormat "Loi: Khong tim thay tap tin jxser.tar.gz trong danh sach"
-                return 1
-            fi
-
-            while true; do
-                # List available folders
-                echo -e "\nCac thu muc co san:"
-                for i in "${!available_paths[@]}"; do
-                    echo "[$i] ${available_paths[$i]}"
-                done
-                
-                # Ask user to choose folder
-                echo -e "\nVui long chon mot thu muc (nhap so):"
-                read choice
-                
-                if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -lt ${#available_paths[@]} ]; then
-                    chosen_path="${available_paths[$choice]}"
-                    break
-                else
-                    echoFormat "Loi: Lua chon khong hop le"
-                fi
-            done
-
-            # Ask for target extraction folder
-            while true; do
-                echo -e "\nNhap ten thu muc de giai nen vao (khong duoc de trong):"
-                read target_folder
-                
-                if [ -z "$target_folder" ]; then
-                    echo "Loi: Ten thu muc khong duoc de trong"
-                    continue
-                fi
-
-                # Check if folder exists
-                if [ -d "/home/${target_folder}" ]; then
-                    echo "Loi: Thu muc '/home/$target_folder' da ton tai. Vui long chon ten khac"
-                    continue
-                fi
-                
-                break
-            done
-
-            # Download and extract
-            source_url="$RAW_CONTENT_URL/${chosen_path}/jxser.tar.gz"
-            echo -e "\nDang tai tap tin tu $source_url..."
-            
-            # Create temporary directory
-            temp_dir=$(mktemp -d)
-            temp_file="$temp_dir/jxser.tar.gz"
-            extract_dir="$temp_dir/extract"
-            mkdir -p "$extract_dir"
-
-            if ! wget -q "$source_url" -O "$temp_file"; then
-                echoFormat "Loi: Khong the tai tap tin"
-                rm -rf "$temp_dir"
-                return 1
-            fi
-
-            echo "Dang giai nen tap tin..."
-            if ! tar -xzf "$temp_file" -C "$extract_dir"; then
-                echoFormat "Loi: Khong the giai nen tap tin"
-                rm -rf "$temp_dir"
-                return 1
-            fi
-
-            # Check for required folders
-            if ! { [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; } && \
-               ! { [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; }; then
-                echoFormat "Loi: Khong tim thay thu muc server1 va gateway trong tap tin"
-                rm -rf "$temp_dir"
-                return 1
-            fi
-
-            # Create target directory
-            mkdir -p "/home/${target_folder}"
-
-            # Copy files to target directory
-            if [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; then
-                cp -rfp "$extract_dir/server1" "$extract_dir/gateway" "/home/${target_folder}/"
-            elif [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; then
-                cp -rfp "$extract_dir/jxser/server1" "$extract_dir/jxser/gateway" "/home/${target_folder}/"
-            fi
-
-            chmod -R 0777 "/home/${target_folder}/server1"
-            chmod -R 0777 "/home/${target_folder}/gateway"
-
-            # Cleanup
-            rm -rf "$temp_dir"
-            echoFormat "Da cap nhat game server xong"
-            return 0
+            download_and_extract_gameserver "$INDEX_URL" "$RAW_CONTENT_URL"
+            return $?
             ;;
         3)  # Download gameserver (khac)
             while true; do
@@ -483,115 +489,8 @@ patch_server(){
                 fi
             done
             
-            # Reuse the same download and extract logic as option 2
-            # Download and parse index.txt
-            echo "Dang tai danh sach tap tin..."
-            index_content=$(wget -qO- "$INDEX_URL")
-            if [ $? -ne 0 ]; then
-                echoFormat "Loi: Khong the tai danh sach tap tin"
-                return 1
-            fi
-
-            # Find all entries containing jxser.tar.gz
-            declare -a available_paths
-            while IFS= read -r line; do
-                if [[ "$line" == *"jxser.tar.gz"* ]]; then
-                    folder_path=$(dirname "$line")
-                    available_paths+=("$folder_path")
-                fi
-            done <<< "$index_content"
-
-            if [ ${#available_paths[@]} -eq 0 ]; then
-                echoFormat "Loi: Khong tim thay tap tin jxser.tar.gz trong danh sach"
-                return 1
-            fi
-
-            while true; do
-                # List available folders
-                echo -e "\nCac thu muc co san:"
-                for i in "${!available_paths[@]}"; do
-                    echo "[$i] ${available_paths[$i]}"
-                done
-                
-                # Ask user to choose folder
-                echo -e "\nVui long chon mot thu muc (nhap so):"
-                read choice
-                
-                if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -lt ${#available_paths[@]} ]; then
-                    chosen_path="${available_paths[$choice]}"
-                    break
-                else
-                    echoFormat "Loi: Lua chon khong hop le"
-                fi
-            done
-
-            # Ask for target extraction folder
-            while true; do
-                echo -e "\nNhap ten thu muc de giai nen vao (khong duoc de trong):"
-                read target_folder
-                
-                if [ -z "$target_folder" ]; then
-                    echo "Loi: Ten thu muc khong duoc de trong"
-                    continue
-                fi
-
-                # Check if folder exists
-                if [ -d "/home/${target_folder}" ]; then
-                    echo "Loi: Thu muc '/home/$target_folder' da ton tai. Vui long chon ten khac"
-                    continue
-                fi
-                
-                break
-            done
-
-            # Download and extract
-            source_url="$RAW_CONTENT_URL/${chosen_path}/jxser.tar.gz"
-            echo -e "\nDang tai tap tin tu $source_url..."
-            
-            # Create temporary directory
-            temp_dir=$(mktemp -d)
-            temp_file="$temp_dir/jxser.tar.gz"
-            extract_dir="$temp_dir/extract"
-            mkdir -p "$extract_dir"
-
-            if ! wget -q "$source_url" -O "$temp_file"; then
-                echoFormat "Loi: Khong the tai tap tin"
-                rm -rf "$temp_dir"
-                return 1
-            fi
-
-            echo "Dang giai nen tap tin..."
-            if ! tar -xzf "$temp_file" -C "$extract_dir"; then
-                echoFormat "Loi: Khong the giai nen tap tin"
-                rm -rf "$temp_dir"
-                return 1
-            fi
-
-            # Check for required folders
-            if ! { [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; } && \
-               ! { [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; }; then
-                echoFormat "Loi: Khong tim thay thu muc server1 va gateway trong tap tin"
-                rm -rf "$temp_dir"
-                return 1
-            fi
-
-            # Create target directory
-            mkdir -p "/home/${target_folder}"
-
-            # Copy files to target directory
-            if [ -d "$extract_dir/server1" ] && [ -d "$extract_dir/gateway" ]; then
-                cp -rfp "$extract_dir/server1" "$extract_dir/gateway" "/home/${target_folder}/"
-            elif [ -d "$extract_dir/jxser/server1" ] && [ -d "$extract_dir/jxser/gateway" ]; then
-                cp -rfp "$extract_dir/jxser/server1" "$extract_dir/jxser/gateway" "/home/${target_folder}/"
-            fi
-
-            chmod -R 0777 "/home/${target_folder}/server1"
-            chmod -R 0777 "/home/${target_folder}/gateway"
-
-            # Cleanup
-            rm -rf "$temp_dir"
-            echoFormat "Da cap nhat game server xong"
-            return 0
+            download_and_extract_gameserver "$INDEX_URL" "$RAW_CONTENT_URL"
+            return $?
             ;;
         4)  # Cai dat khac
             while true; do
