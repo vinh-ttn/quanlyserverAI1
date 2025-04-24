@@ -570,6 +570,8 @@ patch_server(){
                 if [ $? -eq 0 ]; then
                     chmod 0777 "$backup_path"
                     echoFormat "${GREEN}Da tao backup thanh cong: ${YELLOW}${backup_path}${NC}"
+                    echoFormat "Co the dong cua so nay (Ctrl Shift W)"
+
                     break
                 else
                     echoFormat "${RED}Loi khi tao backup${NC}"
