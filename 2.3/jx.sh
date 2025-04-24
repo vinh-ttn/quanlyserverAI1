@@ -331,6 +331,7 @@ download_and_extract_gameserver() {
     index_content=$(wget -qO- "$INDEX_URL")
     if [ $? -ne 0 ]; then
         echoFormat "Loi: Khong the tai danh sach tap tin"
+        echoFormat "Co the dong cua so nay (Ctrl Shift W)"
         return 1
     fi
 
@@ -345,6 +346,7 @@ download_and_extract_gameserver() {
 
     if [ ${#available_paths[@]} -eq 0 ]; then
         echoFormat "Loi: Khong tim thay tap tin jxser.tar.gz trong danh sach"
+        echoFormat "Co the dong cua so nay (Ctrl Shift W)"
         return 1
     fi
 
@@ -356,12 +358,16 @@ download_and_extract_gameserver() {
         done
         
         # Ask user to choose folder
-        echo -e "\nVui long chon game server de download (nhap so):"
+        echo -e "\nVui long chon game server de download (nhap so) hoac go 'X' de thoat:"
         read choice
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -lt ${#available_paths[@]} ]; then
             chosen_path="${available_paths[$choice]}"
             break
+        elif [[ "$choice" == "X" || "$choice" == "x" ]]; then
+            echoFormat "Ket thuc tai day"
+            echoFormat "Co the dong cua so nay (Ctrl Shift W)"
+            return 1
         else
             echoFormat "Loi: Lua chon khong hop le"
         fi
@@ -397,6 +403,7 @@ download_and_extract_gameserver() {
     if ! wget -q "$source_url" -O "$temp_file"; then
         echoFormat "Loi: Khong the tai tap tin"
         rm -rf "$temp_dir"
+        echoFormat "Co the dong cua so nay (Ctrl Shift W)"
         return 1
     fi
 
@@ -408,6 +415,7 @@ download_and_extract_gameserver() {
         echoFormat "Loi: Khong the giai nen tap tin"
         rm -rf "$temp_dir"
         rm -rf "/home/${target_folder}"  # Clean up target dir if extraction failed
+        echoFormat "Co the dong cua so nay (Ctrl Shift W)"
         return 1
     fi
 
@@ -425,6 +433,7 @@ download_and_extract_gameserver() {
     else
         echoFormat "Loi: Khong tim thay thu muc server1 va gateway trong tap tin"
         rm -rf "/home/${target_folder}"
+        echoFormat "Co the dong cua so nay (Ctrl Shift W)"
         return 1
     fi
 
@@ -438,27 +447,30 @@ download_and_extract_gameserver() {
 
 patch_server(){
     # Show menu options
-    echo -e "\nLua chon cach cap nhat:"
+    echo -e "\nLua chon chuc nang:"
     echo "[1] Cai dat/cap nhat SimCity moi nhat"
-    echo "[2] Download cac gameserver tu github vinh-ttn/jx1-gs"
-    echo "[3] Download cac gameserver tu github khac"
-    echo "[4] Cai dat/cap nhat (github khac)"
-    echo -e "\nVui long chon mot lua chon (1-4):"
+    echo "[2] Download gameserver tu github vinh-ttn/jx1-gs"
+    echo "[3] Download gameserver tu github khac"
+    echo "[4] Cai dat/cap nhat tu github khac"
+    echo "[5] Backup server"
+    echo -e "\nVui long chon mot lua chon (1-5):"
     read option_choice
 
     # Validate user choice
-    if ! [[ "$option_choice" =~ ^[1-4]$ ]]; then
+    if ! [[ "$option_choice" =~ ^[1-5]$ ]]; then
         echoFormat "Lua chon khong hop le"
+        echoFormat "Co the dong cua so nay (Ctrl Shift W)"
         return 1
     fi
 
-    # For options 1 and 4, confirm server stop
-    if [ "$option_choice" == "1" ] || [ "$option_choice" == "4" ]; then
+    # For options 1, 4 and 5, confirm server stop
+    if [ "$option_choice" == "1" ] || [ "$option_choice" == "4" ] || [ "$option_choice" == "5" ]; then
         echoFormat "Ban dang cap nhat ${CYAN}${GAMEPATH}${NC}"
         while true; do
             read -p "Vui long xac nhan dung server [co/khong]?  " user_input
             if [ "$user_input" != "co" ]; then
                 echoFormat "Ket thuc cap nhat. Ban co the dong cua so nay."
+                echoFormat "Co the dong cua so nay (Ctrl Shift W)"
                 return 1
             else
                 break
@@ -508,6 +520,50 @@ patch_server(){
                 fi
             done
             ;;
+        5)  # Backup server
+            # Clean up logs first
+            echoFormat "Dang don dep server truoc khi backup..."
+            cleanUpLog
+            
+            # Get folder name from GAMEPATH
+            folder_name=$(basename "$GAMEPATH")
+            
+            while true; do
+                default_backup_name="${folder_name}-$(date +%Y-%m-%d_%H-%M-%S).tar.gz"
+                
+                # Ask user for backup name
+                read -p "Nhap ten file backup [$default_backup_name]: " backup_name
+                backup_name=${backup_name:-$default_backup_name}
+                
+                # Add .tar.gz extension if not present
+                if [[ ! $backup_name =~ \.tar\.gz$ ]]; then
+                    backup_name="${backup_name}.tar.gz"
+                fi
+                
+                # Add /home prefix
+                backup_path="/home/${backup_name}"
+                
+                # Check if file already exists
+                if [ -f "$backup_path" ]; then
+                    echoFormat "${YELLOW}File $backup_path da ton tai. Vui long chon ten khac.${NC}"
+                    continue
+                fi
+                
+                # Create backup
+                echoFormat "Dang tao backup cua ${CYAN}${GAMEPATH}${NC} vao ${YELLOW}${backup_path}${NC}"
+                tar cvzf "$backup_path" -C "$(dirname "$GAMEPATH")" "$(basename "$GAMEPATH")"
+                
+                if [ $? -eq 0 ]; then
+                    chmod 0777 "$backup_path"
+                    echoFormat "${GREEN}Da tao backup thanh cong: ${YELLOW}${backup_path}${NC}"
+                    break
+                else
+                    echoFormat "${RED}Loi khi tao backup${NC}"
+                    echoFormat "Co the dong cua so nay (Ctrl Shift W)"
+                    return 1
+                fi
+            done
+            ;;
     esac
 
     # For options 1 and 4, handle simcity and other installations
@@ -535,6 +591,7 @@ patch_server(){
                     echoFormat "${GREEN}Da xoa thu muc simcity hien tai${NC}"
                 else
                     echoFormat "${RED}Loi khi sao luu simcity. Tien trinh cap nhat bi huy.${NC}"
+                    echoFormat "Co the dong cua so nay (Ctrl Shift W)"
                     return 1
                 fi
             else
