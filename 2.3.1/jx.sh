@@ -464,8 +464,22 @@ patch_server(){
     fi
 
     # For options 1, 4 and 5, confirm server stop
-    if [ "$option_choice" == "1" ] || [ "$option_choice" == "4" ] || [ "$option_choice" == "5" ]; then
+    if [ "$option_choice" == "1" ] || [ "$option_choice" == "4" ]; then
         echoFormat "Ban dang cap nhat ${CYAN}${GAMEPATH}${NC}"
+        while true; do
+            read -p "Vui long xac nhan dung server [co/khong]?  " user_input
+            if [ "$user_input" != "co" ]; then
+                echoFormat "Ket thuc cap nhat. Ban co the dong cua so nay."
+                echoFormat "Co the dong cua so nay (Ctrl Shift W)"
+                return 1
+            else
+                break
+            fi
+        done
+    fi
+
+    if [ "$option_choice" == "5" ]; then
+        echoFormat "Ban dang backup ${CYAN}${GAMEPATH}${NC}"
         while true; do
             read -p "Vui long xac nhan dung server [co/khong]?  " user_input
             if [ "$user_input" != "co" ]; then
@@ -628,10 +642,11 @@ patch_server(){
         # Cleanup temporary files
         rm -rf "$temp_dir"
         rm -rf "$temp_extract_dir"
+
+        echoFormat "Da cap nhat game server xong. Ban co the dong cua so nay. (Ctrl Shift W)"
+        echoFormat "Link Github: https://github.com/$target"
     fi
 
-    echoFormat "Da cap nhat game server xong. Ban co the dong cua so nay. (Ctrl Shift W)"
-    echoFormat "Link Github: https://github.com/$target"
 }
 ##################
 # MAIN PROGRAM
