@@ -290,7 +290,11 @@ function backup_mssql() {
 function updateAddress(){
   local database_name="$1"
   local gameIP="$2"
-  $MSSQL_CMD -S $MSSQL_SERVER -U $MSSQL_USER -P $MSSQL_PASSWORD -d $database_name -Q "UPDATE ServerList set cIP='$gameIP', cMemo='$SERVERMAC' WHERE iid=1;"
+
+  # Convert MAC from XX-XX-XX-XX-XX-XX to XXXX-XXXX-XXXX format
+  local mac_formatted=$(echo "$SERVERMAC" | sed 's/-//g' | sed 's/\(.\{4\}\)/\1-/g' | sed 's/-$//')
+
+  $MSSQL_CMD -S $MSSQL_SERVER -U $MSSQL_USER -P $MSSQL_PASSWORD -d $database_name -Q "UPDATE ServerList set cIP='$gameIP', cMemo='$mac_formatted' WHERE iid=1;"
 }
 
 
